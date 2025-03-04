@@ -102,14 +102,16 @@ function checkSensorsReadyAndStopScan() {
     console.log(`[État] Capteur gauche: ${connectedDevices.has(SENSOR_LEFT.toLowerCase()) ? 'connecté' : 'déconnecté'}, ${sensorsWithData.has(SENSOR_LEFT.toLowerCase()) ? 'données reçues' : 'pas de données'}`)
     console.log(`[État] Capteur droit: ${connectedDevices.has(SENSOR_RIGHT.toLowerCase()) ? 'connecté' : 'déconnecté'}, ${sensorsWithData.has(SENSOR_RIGHT.toLowerCase()) ? 'données reçues' : 'pas de données'}`)
     
-    if (bothActive && isScanning) {
-        console.log('[Scanner] Les deux capteurs sont opérationnels, arrêt automatique du scan')
-        stopScanning()
+    if (bothActive) {
+        // Les capteurs sont actifs, mettre à jour le bouton dans tous les cas
         enableScanButton("Capteurs trouvés", "#3498db", false) // Bleu, non cliquable
+        
+        // Si le scan est en cours, l'arrêter
+        if (isScanning) {
+            console.log('[Scanner] Les deux capteurs sont opérationnels, arrêt automatique du scan')
+            stopScanning()
+        }
         return true
-    } else if (bothActive) {
-        // Si déjà connectés mais pas en mode scanning
-        enableScanButton("Capteurs trouvés", "#3498db", false)
     }
     return false
 }
@@ -180,6 +182,9 @@ function startAnimationLoop() {
             updateAudioControls(deltaTime)
         }
         
+        // Vérifier l'état des capteurs (nouveau)
+        checkSensorsReadyAndStopScan()
+        
         // Continuer la boucle d'animation
         animationFrameId = requestAnimationFrame(animate)
     }
@@ -199,18 +204,27 @@ function stopAnimationLoop() {
 
 // Désactiver le bouton de scan pendant la recherche
 function disableScanButton() {
+    if (!scanButton) return // Sécurité supplémentaire
+    
     scanButton.disabled = true
     scanButton.style.backgroundColor = '#e74c3c' // Rouge
     scanButton.style.cursor = 'not-allowed'
     scanButton.textContent = 'Recherche en cours...'
+    
+    console.log('[UI] Bouton scan désactivé: Recherche en cours...')
 }
 
 // Mettre à jour l'état du bouton selon les paramètres
 function enableScanButton(text = "Rechercher les capteurs", color = "#4CAF50", enabled = true) {
+    if (!scanButton) return // Sécurité supplémentaire
+    
     scanButton.disabled = !enabled
     scanButton.style.backgroundColor = color
     scanButton.style.cursor = enabled ? 'pointer' : 'not-allowed'
     scanButton.textContent = text
+    
+    // Log pour déboguer
+    console.log(`[UI] Bouton scan mis à jour: ${text}, couleur: ${color}, activé: ${enabled}`)
 }
 
 function createDeviceDisplay(position, color, address) {
@@ -425,6 +439,9 @@ function processData(data, address) {
     if (areBothSensorsActive() && !animationFrameId) {
         startAnimationLoop()
     }
+    
+    // Vérifier l'état des capteurs après chaque mise à jour (nouveau)
+    checkSensorsReadyAndStopScan()
 
     return {
         x: normalizedAngles.x.toFixed(1),
