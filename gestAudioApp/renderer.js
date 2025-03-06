@@ -55,27 +55,22 @@ let currentVolume = 1.0
 let lastFrameTime = 0
 let audioFrameId = null
 
-// Paramètres améliorés pour une expérience type vinyle/bande
-const GRAIN_SIZE = 0.35;          // Grains plus longs pour réduire l'effet métallique (350ms)
-const OVERLAP = 0.92;             // Chevauchement extrême pour éliminer les craquements (92%)
-const UPDATE_RATE = 90;           // Taux de mise à jour très élevé pour une meilleure précision
-const UPDATE_INTERVAL = 1000 / UPDATE_RATE;
-const MAX_ACTIVE_GRAINS = 12;     // Plus de grains simultanés pour une couverture complète
-const WINDOW_TYPE = 'hann';       // Options: 'hann', 'blackman', 'triangular', 'gaussian'
-const PITCH_SHIFT_MODE = true;    // Utiliser le pitch shifting pour vitesses extrêmes
-const MAX_RATE_BEFORE_PITCHSHIFT = 2.5; // Seuil au-delà duquel activer le pitch shift
+// Paramètres optimisés pour une meilleure qualité audio
+const GRAIN_SIZE = 0.35        // Taille des grains (350ms)
+const OVERLAP = 0.92           // Chevauchement (92%)
+const UPDATE_RATE = 60         // Taux de mise à jour (60Hz)
+const UPDATE_INTERVAL = 1000 / UPDATE_RATE
+const MAX_ACTIVE_GRAINS = 8    // Limite de grains actifs
+const WINDOW_TYPE = 'hann'     // Type de fenêtre d'apodisation
 
-// Chaîne de traitement audio et filtres
+// Variables pour la lecture en boucle
+let loopPlayback = true        // Par défaut activé
+let isLoopTransitioning = false // Indicateur de transition de boucle en cours
+let loopTransitionDuration = 0.25 // Durée de la transition de boucle (en secondes)
+
+// Chaîne de traitement audio
 let filterNode = null
-let analyserNode = null
-let processingChain = null
-let pendingGrainQueue = []
-let lastReportedPosition = 0
-
-// Système de protection
-let underrunProtection = 0.25;    // Protection contre le sous-échantillonnage (250ms)
-let isPositionLooping = false;    // Détection de boucle
-let lastPositionUpdate = 0;       // Temps de la dernière mise à jour de position
+let pendingGrainFlag = false
 
 // File d'attente pour les sources audio
 let audioSources = []
@@ -205,7 +200,7 @@ function startAnimationLoop() {
             updateAudioControls(deltaTime)
         }
         
-        // Vérifier l'état des capteurs (nouveau)
+        // Vérifier l'état des capteurs
         checkSensorsReadyAndStopScan()
         
         // Continuer la boucle d'animation
@@ -246,7 +241,6 @@ function enableScanButton(text = "Rechercher les capteurs", color = "#4CAF50", e
     scanButton.style.cursor = enabled ? 'pointer' : 'not-allowed'
     scanButton.textContent = text
     
-    // Log pour déboguer
     console.log(`[UI] Bouton scan mis à jour: ${text}, couleur: ${color}, activé: ${enabled}`)
 }
 
@@ -463,7 +457,7 @@ function processData(data, address) {
         startAnimationLoop()
     }
     
-    // Vérifier l'état des capteurs après chaque mise à jour (nouveau)
+    // Vérifier l'état des capteurs après chaque mise à jour
     checkSensorsReadyAndStopScan()
 
     return {
@@ -578,197 +572,58 @@ noble.on('discover', (peripheral) => {
     }
 })
 
-// --- SYSTÈME AUDIO AMÉLIORÉ MODE VINYLE ---
+// --- SYSTÈME AUDIO AMÉLIORÉ AVEC LECTURE EN BOUCLE ---
 
 // Créer une fenêtre d'apodisation pour éliminer les artefacts
 function createWindow(type, length) {
     const window = new Float32Array(length);
     const factor = 2 * Math.PI / (length - 1);
     
-    switch (type) {
-        case 'hann': // Fenêtre de Hann (excellente pour l'audio)
-            for (let i = 0; i < length; i++) {
-                window[i] = 0.5 * (1 - Math.cos(i * factor));
+    if (type === 'hann') {
+        for (let i = 0; i < length; i++) {
+            window[i] = 0.5 * (1 - Math.cos(i * factor));
+        }
+    } else {
+        // Fenêtre simple par défaut
+        for (let i = 0; i < length; i++) {
+            if (i < length * 0.1 || i > length * 0.9) {
+                const edge = i < length * 0.1 ? i / (length * 0.1) : (length - i) / (length * 0.1);
+                window[i] = Math.sin(edge * Math.PI/2);
+            } else {
+                window[i] = 1.0;
             }
-            break;
-        
-        case 'blackman': // Fenêtre de Blackman (encore meilleures basses)
-            const alpha = 0.16;
-            const a0 = (1 - alpha) / 2;
-            const a1 = 0.5;
-            const a2 = alpha / 2;
-            
-            for (let i = 0; i < length; i++) {
-                const x = i / (length - 1);
-                window[i] = a0 - a1 * Math.cos(2 * Math.PI * x) + a2 * Math.cos(4 * Math.PI * x);
-            }
-            break;
-            
-        case 'triangular': // Fenêtre triangulaire (simple mais efficace)
-            const halfLength = (length - 1) / 2;
-            for (let i = 0; i < length; i++) {
-                window[i] = 1 - Math.abs((i - halfLength) / halfLength);
-            }
-            break;
-            
-        case 'gaussian': // Fenêtre gaussienne (très douce)
-            const sigma = 0.4;
-            const center = (length - 1) / 2;
-            for (let i = 0; i < length; i++) {
-                const x = (i - center) / center;
-                window[i] = Math.exp(-0.5 * Math.pow(x / sigma, 2));
-            }
-            break;
-            
-        default: // Rectangle avec bords adoucis (simple)
-            for (let i = 0; i < length; i++) {
-                if (i < length * 0.1 || i > length * 0.9) {
-                    const edge = i < length * 0.1 ? i / (length * 0.1) : (length - i) / (length * 0.1);
-                    window[i] = Math.sin(edge * Math.PI/2);
-                } else {
-                    window[i] = 1.0;
-                }
-            }
+        }
     }
     
     return window;
 }
 
-// Créer un graphe de traitement audio complet
-function createAdvancedAudioProcessingGraph() {
-    if (!audioContext) return null;
+// Créer la chaîne de traitement audio
+function createAudioProcessingGraph() {
+    if (!audioContext) return;
     
     try {
-        // Créer une chaîne de filtrage sophistiquée
+        // Filtre passe-bas pour adoucir les transitions
+        filterNode = audioContext.createBiquadFilter();
+        filterNode.type = 'lowpass';
+        filterNode.frequency.value = 18000;
+        filterNode.Q.value = 0.7;
         
-        // 1. Filtre passe-bas principal (pour simuler le comportement d'une tête de lecture réelle)
-        const lowpassFilter = audioContext.createBiquadFilter();
-        lowpassFilter.type = 'lowpass';
-        lowpassFilter.frequency.value = 20000;
-        lowpassFilter.Q.value = 0.7;
+        // Connexion au destination
+        filterNode.connect(audioContext.destination);
         
-        // 2. Filtre passe-haut pour éliminer les bruits de très basse fréquence
-        const highpassFilter = audioContext.createBiquadFilter();
-        highpassFilter.type = 'highpass';
-        highpassFilter.frequency.value = 20; // Couper sous 20Hz
-        highpassFilter.Q.value = 0.7;
-        
-        // 3. Égaliseur paramétrique pour adoucir les moyennes fréquences
-        const midEQ = audioContext.createBiquadFilter();
-        midEQ.type = 'peaking';
-        midEQ.frequency.value = 1000; // 1kHz
-        midEQ.Q.value = 1.0;
-        midEQ.gain.value = -1.0; // Légère réduction pour adoucir
-        
-        // 4. Compresseur pour contrôler les pics
-        const compressor = audioContext.createDynamicsCompressor();
-        compressor.threshold.value = -24;
-        compressor.knee.value = 10;
-        compressor.ratio.value = 4;
-        compressor.attack.value = 0.005;
-        compressor.release.value = 0.050;
-        
-        // 5. Analyseur pour le diagnostic
-        const analyzer = audioContext.createAnalyser();
-        analyzer.fftSize = 2048;
-        analyzer.smoothingTimeConstant = 0.8;
-        
-        // Connecter les éléments ensemble
-        lowpassFilter.connect(highpassFilter);
-        highpassFilter.connect(midEQ);
-        midEQ.connect(compressor);
-        compressor.connect(analyzer);
-        analyzer.connect(audioContext.destination);
-        
-        // Stocker les références
-        filterNode = lowpassFilter;
-        analyserNode = analyzer;
-        
-        // Chaîne de traitement
-        processingChain = {
-            lowpass: lowpassFilter,
-            highpass: highpassFilter,
-            equalizer: midEQ,
-            compressor: compressor,
-            analyzer: analyzer
-        };
-        
-        console.log('[Audio] Graphe de traitement audio avancé créé');
-        
-        return processingChain;
+        console.log('[Audio] Graphe de traitement audio créé');
     } catch (e) {
-        console.error('[Audio] Erreur lors de la création du graphe audio avancé:', e);
-        // Fallback au graphe simple
-        try {
-            filterNode = audioContext.createBiquadFilter();
-            filterNode.type = 'lowpass';
-            filterNode.frequency.value = 18000;
-            
-            analyserNode = audioContext.createAnalyser();
-            
-            filterNode.connect(analyserNode);
-            analyserNode.connect(audioContext.destination);
-            
-            return { lowpass: filterNode, analyzer: analyserNode };
-        } catch (fallbackError) {
-            console.error('[Audio] Échec du fallback:', fallbackError);
-            return null;
-        }
-    }
-}
-
-// Adapter le filtre de manière plus naturelle selon la vitesse
-function updateAdvancedFilter(rate, direction) {
-    if (!processingChain) return;
-    
-    try {
-        const absRate = Math.abs(rate);
-        
-        // 1. Filtre passe-bas: vitesses élevées = moins de hautes fréquences
-        let cutoffFreq = 20000;
-        if (absRate > 1.5) {
-            // Réduction progressive des hautes fréquences avec la vitesse
-            cutoffFreq = 20000 - ((absRate - 1.5) * 4000);
-            cutoffFreq = Math.max(8000, cutoffFreq); // Ne jamais descendre sous 8kHz
-        }
-        processingChain.lowpass.frequency.setTargetAtTime(cutoffFreq, audioContext.currentTime, 0.1);
-        
-        // 2. Ajuster la résonance selon la direction
-        const newQ = direction < 0 ? 0.9 : 0.7; // Légèrement plus de résonance en arrière
-        processingChain.lowpass.Q.setTargetAtTime(newQ, audioContext.currentTime, 0.2);
-        
-        // 3. Ajuster l'égalisation selon la vitesse
-        if (absRate > 2.0) {
-            // Réduire davantage les moyennes à haute vitesse pour atténuer l'effet métallique
-            processingChain.equalizer.gain.setTargetAtTime(-2.5, audioContext.currentTime, 0.2);
-            // Ajuster la fréquence ciblée
-            processingChain.equalizer.frequency.setTargetAtTime(1500, audioContext.currentTime, 0.2);
-        } else {
-            // Égalisation plus neutre à vitesse normale
-            processingChain.equalizer.gain.setTargetAtTime(-1.0, audioContext.currentTime, 0.2);
-            processingChain.equalizer.frequency.setTargetAtTime(1000, audioContext.currentTime, 0.2);
-        }
-        
-        // 4. Ajuster le compresseur selon la vitesse
-        if (absRate > 2.5) {
-            // Compression plus agressive à très haute vitesse
-            processingChain.compressor.threshold.setTargetAtTime(-28, audioContext.currentTime, 0.2);
-            processingChain.compressor.ratio.setTargetAtTime(5, audioContext.currentTime, 0.2);
-        } else {
-            // Compression plus légère à vitesse normale
-            processingChain.compressor.threshold.setTargetAtTime(-24, audioContext.currentTime, 0.2);
-            processingChain.compressor.ratio.setTargetAtTime(4, audioContext.currentTime, 0.2);
-        }
-        
-    } catch (e) {
-        console.error('[Audio] Erreur lors de la mise à jour du filtre avancé:', e);
+        console.error('[Audio] Erreur création graphe audio:', e);
+        // Fallback simple en cas d'erreur
+        audioContext.destination.connect(audioContext.destination);
     }
 }
 
 // Initialisation du système audio
 function initAudio() {
     try {
-        // Créer l'élément audio standard (pour compatibilité)
+        // Créer l'élément audio standard
         audioElement = document.createElement('audio');
         document.body.appendChild(audioElement);
         
@@ -776,8 +631,8 @@ function initAudio() {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         console.log('[Audio] Contexte audio créé');
         
-        // Créer le graphe de traitement audio avancé
-        processingChain = createAdvancedAudioProcessingGraph();
+        // Créer le graphe de traitement audio
+        createAudioProcessingGraph();
         
         // Interface utilisateur pour l'état de lecture
         const controlsContainer = document.getElementById('audioControls');
@@ -790,14 +645,28 @@ function initAudio() {
             statusDisplay.textContent = 'État: Prêt';
             controlsContainer.appendChild(statusDisplay);
             
-            // Bouton de diagnostic audio
-            const debugButton = document.createElement('button');
-            debugButton.textContent = 'Diagnostiquer Audio';
-            debugButton.style.marginTop = '10px';
-            debugButton.addEventListener('click', () => {
-                debugAudioState();
+            // Option de boucle simple
+            const loopContainer = document.createElement('div');
+            loopContainer.style.marginTop = '10px';
+            
+            const loopCheckbox = document.createElement('input');
+            loopCheckbox.type = 'checkbox';
+            loopCheckbox.id = 'loopCheckbox';
+            loopCheckbox.checked = loopPlayback;
+            
+            const loopLabel = document.createElement('label');
+            loopLabel.htmlFor = 'loopCheckbox';
+            loopLabel.textContent = 'Lecture en boucle';
+            loopLabel.style.marginLeft = '5px';
+            
+            loopCheckbox.addEventListener('change', function() {
+                loopPlayback = this.checked;
+                console.log(`[Audio] Lecture en boucle ${loopPlayback ? 'activée' : 'désactivée'}`);
             });
-            controlsContainer.appendChild(debugButton);
+            
+            loopContainer.appendChild(loopCheckbox);
+            loopContainer.appendChild(loopLabel);
+            controlsContainer.appendChild(loopContainer);
         }
     } catch (e) {
         console.error('[Audio] Erreur création contexte audio:', e);
@@ -827,11 +696,9 @@ function initAudio() {
             try {
                 const reader = new FileReader();
                 reader.onload = async function(event) {
-                    const arrayBuffer = event.target.result;
-                    
                     try {
                         // Décoder les données audio
-                        audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                        audioBuffer = await audioContext.decodeAudioData(event.target.result);
                         playbackPosition = 0;
                         
                         // Mettre à jour l'interface
@@ -842,8 +709,8 @@ function initAudio() {
                     }
                 };
                 
-                reader.onerror = function(event) {
-                    console.error('[Audio] Erreur lecture fichier:', event);
+                reader.onerror = function() {
+                    console.error('[Audio] Erreur lecture fichier');
                 };
                 
                 reader.readAsArrayBuffer(file);
@@ -878,287 +745,336 @@ function initAudio() {
                 updatePlaybackDisplay();
             });
         }
-        
     } catch (initError) {
         console.error('[Audio] Erreur initialisation audio:', initError);
+    }
+}
+
+// Adapter le filtre en fonction de la vitesse
+function updateFilter() {
+    if (!filterNode) return;
+    
+    // Ajuster le filtre passe-bas en fonction de la vitesse
+    // Plus la vitesse est élevée, plus on filtre les hautes fréquences
+    if (Math.abs(playbackRate) > 2.0) {
+        const filterFreq = 21000 - (Math.abs(playbackRate) - 2.0) * 2000;
+        filterNode.frequency.value = Math.max(8000, filterFreq);
+        filterNode.Q.value = Math.min(1.0, Math.abs(playbackRate) / 3);
+    } else {
+        // À vitesse normale ou lente, garder une fréquence haute (peu d'effet)
+        filterNode.frequency.value = 20000;
+        filterNode.Q.value = 0.5;
     }
 }
 
 // Nettoyer les sources terminées
 function cleanupEndedSources() {
     const now = audioContext.currentTime;
-    const initialCount = audioSources.length;
-    
     audioSources = audioSources.filter(source => {
         if (source.endTime < now) {
             try {
-                // S'assurer que la source et le gain sont bien déconnectés
+                // Déconnecter et nettoyer
                 if (source.gainNode) {
                     source.gainNode.disconnect();
                 }
                 source.disconnect();
             } catch (e) {
-                // Ignorer les erreurs, la source peut déjà être déconnectée
+                // Ignorer les erreurs
             }
             return false; // Supprimer de la file
         }
         return true; // Garder dans la file
     });
-    
-    // Si beaucoup de sources ont été nettoyées, on le note
-    if (initialCount - audioSources.length > 3) {
-        console.log(`[Audio] Nettoyage: ${initialCount - audioSources.length} sources terminées`);
-    }
 }
 
-// Planifier le prochain grain audio avec émulation vinyle améliorée
+// Planifier le grain audio avec gestion de boucle améliorée
 function scheduleGrain() {
-    if (!isPlaying || !audioBuffer) return false;
+    if (!isPlaying || !audioBuffer) return;
     
     try {
         // Nettoyer les sources terminées
         cleanupEndedSources();
         
-        // Si trop de grains actifs, limiter
+        // Si trop de grains actifs, reporter
         if (audioSources.length >= MAX_ACTIVE_GRAINS) {
-            return false;
+            return;
         }
         
-        // Protéger contre les boucles de position (détection de répétition)
-        const now = performance.now();
-        if (now - lastPositionUpdate > 50 && Math.abs(playbackPosition - lastReportedPosition) < 0.001) {
-            if (!isPositionLooping) {
-                console.warn('[Audio] Détection de boucle possible, position stable à', playbackPosition.toFixed(3));
-                isPositionLooping = true;
-            }
-            
-            // Stratégie anti-bouclage: ajuster légèrement la position
-            if (playDirection < 0 && playbackPosition < 0.1) {
-                playbackPosition = 0;
-                return false;
-            } else if (playDirection > 0 && playbackPosition > audioBuffer.duration - 0.1) {
-                playbackPosition = audioBuffer.duration;
-                return false;
-            }
-        } else {
-            isPositionLooping = false;
-            lastReportedPosition = playbackPosition;
-            lastPositionUpdate = now;
-        }
-        
-        // Déterminer les paramètres du grain
+        // Paramètres du grain
+        const grainSize = GRAIN_SIZE;
         const absRate = Math.abs(playbackRate);
         
-        // Adapter la taille du grain en fonction de la vitesse
-        let grainSize = GRAIN_SIZE;
-        if (absRate > 1.5) {
-            // Réduire la taille des grains à haute vitesse pour plus de précision
-            grainSize = GRAIN_SIZE / (1 + (absRate - 1.5) * 0.2);
-            grainSize = Math.max(0.15, grainSize); // Ne pas descendre sous 150ms
+        // Position actuelle avec légère variation aléatoire pour réduire les artefacts
+        let grainPosition = playbackPosition + (Math.random() * 0.01 - 0.005);
+        
+        // === GESTION AMÉLIORÉE DES LIMITES EN MODE BOUCLE ===
+        let isTransitionGrain = false;  // Indique si ce grain est un grain de transition
+        
+        if (loopPlayback) {
+            // Détecter si nous approchons d'une limite pour préparer une transition
+            const approachingStart = grainPosition < grainSize && playDirection < 0;
+            const approachingEnd = (grainPosition + grainSize) > audioBuffer.duration && playDirection > 0;
+            
+            if (approachingStart || approachingEnd) {
+                // Marquer la transition
+                isLoopTransitioning = true;
+                isTransitionGrain = true;
+                
+                if (approachingStart) {
+                    // Lecture arrière approchant le début: préparer le grain de fin
+                    const grainPositionFromEnd = audioBuffer.duration - Math.abs(grainPosition);
+                    if (grainPosition < 0) {
+                        // Déjà passé sous zéro, utiliser la position depuis la fin
+                        grainPosition = grainPositionFromEnd;
+                    } else {
+                        // Planifier un grain supplémentaire à la fin pour assurer une transition fluide
+                        scheduleTransitionGrain(grainPositionFromEnd, absRate);
+                    }
+                }
+                else if (approachingEnd) {
+                    // Lecture avant approchant la fin: préparer le grain de début
+                    const grainPositionFromStart = grainPosition - audioBuffer.duration;
+                    if (grainPosition >= audioBuffer.duration) {
+                        // Déjà dépassé la fin, utiliser la position depuis le début
+                        grainPosition = grainPositionFromStart;
+                    } else {
+                        // Planifier un grain supplémentaire au début pour assurer une transition fluide
+                        scheduleTransitionGrain(grainPositionFromStart, absRate);
+                    }
+                }
+            }
+            else {
+                // Hors zone de transition, ajustement normal des limites
+                if (grainPosition < 0) {
+                    grainPosition = audioBuffer.duration + grainPosition;
+                } else if (grainPosition >= audioBuffer.duration) {
+                    grainPosition = grainPosition - audioBuffer.duration;
+                }
+                
+                // Fin de la transition si nous étions dedans
+                if (isLoopTransitioning) {
+                    isLoopTransitioning = false;
+                }
+            }
+        } else {
+            // Mode sans boucle: vérifier les limites
+            if (grainPosition < 0) {
+                grainPosition = 0;
+            } else if (grainPosition >= audioBuffer.duration) {
+                grainPosition = audioBuffer.duration - 0.01;
+            }
         }
         
-        // Ajouter une légère variation aléatoire de taille pour éviter la périodicité audible
-        const sizeVariation = grainSize * 0.025; // 2.5% de variation maximale
-        const finalGrainSize = grainSize + (Math.random() * 2 - 1) * sizeVariation;
-        
-        // Calculer la position du grain
-        let grainPosition = playbackPosition;
-        
-        // En lecture arrière rapide, ajouter une protection pour éviter la répétition
-        if (playDirection < 0 && absRate > 2.0) {
-            // La protection augmente avec la vitesse
-            const backShift = underrunProtection * (1 + (absRate - 2.0) * 0.5);
-            grainPosition = Math.max(0, grainPosition - backShift * finalGrainSize);
-        }
-        
-        // Vérifier les limites
-        if (grainPosition < 0) {
-            return false; // Ne pas créer de grain avant le début
-        } else if (grainPosition >= audioBuffer.duration) {
-            return false; // Ne pas créer de grain après la fin
-        }
-        
-        // Déterminer la durée disponible
-        let availableDuration = finalGrainSize;
+        // Calculer la durée disponible à cette position
+        let availableDuration = grainSize;
         if (grainPosition + availableDuration > audioBuffer.duration) {
-            availableDuration = audioBuffer.duration - grainPosition;
+            if (loopPlayback) {
+                // En mode boucle, on prend ce qui reste
+                availableDuration = audioBuffer.duration - grainPosition;
+            } else {
+                availableDuration = audioBuffer.duration - grainPosition;
+            }
         }
         
-        if (availableDuration < 0.05) {
-            return false; // Éviter les grains trop courts
-        }
+        if (availableDuration < 0.05) return; // Éviter les grains trop courts
         
-        // Créer une nouvelle source
+        // Créer une nouvelle source et un nœud de gain
         const source = audioContext.createBufferSource();
         source.buffer = audioBuffer;
+        source.playbackRate.value = absRate;
         
-        // Déterminer le taux de lecture et le mode (pitch shift ou non)
-        let playRate = absRate;
-        let isPitchShifted = false;
-        
-        if (PITCH_SHIFT_MODE && absRate > MAX_RATE_BEFORE_PITCHSHIFT) {
-            // Mode de pitch shift: lecture à vitesse réduite + ajustement de position
-            playRate = MAX_RATE_BEFORE_PITCHSHIFT;
-            isPitchShifted = true;
-        }
-        
-        source.playbackRate.value = playRate;
-        
-        // Créer un nœud de gain avec courbe avancée
         const gainNode = audioContext.createGain();
-        
-        // Connecter la source au gain
         source.connect(gainNode);
         
-        // Connecter le gain à la chaîne de traitement
-        if (processingChain && processingChain.lowpass) {
-            gainNode.connect(processingChain.lowpass);
-        } else if (filterNode) {
+        if (filterNode) {
             gainNode.connect(filterNode);
         } else {
             gainNode.connect(audioContext.destination);
         }
         
-        // Calculer les timings précis
+        // Timings précis
         const currentTime = audioContext.currentTime;
-        const startTime = currentTime + 0.005; // Légère avance pour synchronisation
-        const grainDuration = availableDuration / playRate; // Durée réelle avec vitesse
+        const startTime = currentTime + 0.005;
+        const grainDuration = availableDuration / absRate;
         const stopTime = startTime + grainDuration;
         
-        // Créer une fenêtre d'apodisation pour éliminer les artefacts
+        // Créer une fenêtre d'apodisation pour éviter les clics
         const windowSamples = 100;
         const windowCurve = createWindow(WINDOW_TYPE, windowSamples);
         
-        // Appliquer la courbe de gain
-        const fadeInRatio = 0.15; // 15% de la durée totale
-        const fadeOutRatio = 0.15; // 15% de la durée totale
-        const fadeInDuration = grainDuration * fadeInRatio;
-        const fadeOutDuration = grainDuration * fadeOutRatio;
-        const plateauDuration = grainDuration - fadeInDuration - fadeOutDuration;
-        
-        // Remplir un tableau d'automation pour la courbe complète
-        const fadeSteps = windowSamples * 2 + 1; // Nombre de pas pour la courbe complète
+        // Remplir le tableau d'automation pour la courbe complète
+        const fadeSteps = windowSamples * 2 + 1;
         const fullGainCurve = new Float32Array(fadeSteps);
         
-        // Portion fade-in
+        // Appliquer la fenêtre
         for (let i = 0; i < windowSamples; i++) {
             fullGainCurve[i] = windowCurve[i] * currentVolume;
         }
         
-        // Portion plateau
         for (let i = windowSamples; i < windowSamples + 1; i++) {
             fullGainCurve[i] = currentVolume;
         }
         
-        // Portion fade-out
         for (let i = 0; i < windowSamples; i++) {
             fullGainCurve[windowSamples + 1 + i] = windowCurve[windowSamples - 1 - i] * currentVolume;
         }
         
-        // Appliquer la courbe complète
+        // Appliquer la courbe de gain
         try {
             gainNode.gain.setValueAtTime(0, startTime);
             gainNode.gain.setValueCurveAtTime(fullGainCurve, startTime, grainDuration);
         } catch (e) {
-            // Fallback en cas d'erreur: utiliser des rampes linéaires simples
-            console.warn('[Audio] Erreur avec la courbe, utilisation du fallback:', e);
+            // Fallback linéaire en cas d'erreur
             gainNode.gain.setValueAtTime(0, startTime);
-            gainNode.gain.linearRampToValueAtTime(currentVolume, startTime + fadeInDuration);
-            gainNode.gain.setValueAtTime(currentVolume, startTime + fadeInDuration + plateauDuration);
+            gainNode.gain.linearRampToValueAtTime(currentVolume, startTime + grainDuration * 0.15);
+            gainNode.gain.setValueAtTime(currentVolume, startTime + grainDuration * 0.15);
             gainNode.gain.linearRampToValueAtTime(0, stopTime);
         }
         
-        // Démarrer la lecture avec offset précis
-        try {
-            source.start(startTime, grainPosition, availableDuration);
-            source.stop(stopTime);
-        } catch (e) {
-            console.error('[Audio] Erreur de démarrage du grain:', e);
-            return false;
-        }
+        // Démarrer la lecture
+        source.start(startTime, grainPosition, availableDuration);
+        source.stop(stopTime);
         
-        // Stocker les informations sur la source pour la gestion
+        // Stocker les informations
         source.endTime = stopTime;
         source.gainNode = gainNode;
         source.grainPosition = grainPosition;
-        source.grainDuration = availableDuration;
-        source.isPitchShifted = isPitchShifted;
-        source.playRate = playRate;
+        source.isTransitionGrain = isTransitionGrain;
         audioSources.push(source);
-        
-        // Mise à jour des logs (réduits pour ne pas surcharger)
-        if (Math.random() < 0.02) { // Seulement ~2% des grains
-            console.log(`[Audio] Grain: pos=${grainPosition.toFixed(2)}s, dur=${availableDuration.toFixed(3)}s, rate=${playRate.toFixed(2)}, pitch=${isPitchShifted}`);
-        }
         
         return true;
     } catch (error) {
-        console.error('[Audio] Erreur lors de la planification du grain vinyle:', error);
+        console.error('[Audio] Erreur lors de la planification du grain:', error);
         return false;
     }
 }
 
-// Fonction principale de contrôle audio pour mode vinyle
-function scheduleAudioLoop() {
+// Planifier un grain de transition spécifique pour les boucles fluides
+function scheduleTransitionGrain(position, rate) {
+    if (!isPlaying || !audioBuffer || position < 0 || position >= audioBuffer.duration) return;
+    
+    try {
+        // Paramètres du grain de transition
+        let grainSize = GRAIN_SIZE * 1.2; // Légèrement plus grand pour une meilleure transition
+        
+        // Limiter la taille si nécessaire
+        if (position + grainSize > audioBuffer.duration) {
+            grainSize = audioBuffer.duration - position;
+        }
+        
+        if (grainSize < 0.05) return; // Trop petit pour être utile
+        
+        // Créer source et gain
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.playbackRate.value = rate;
+        
+        const gainNode = audioContext.createGain();
+        source.connect(gainNode);
+        
+        if (filterNode) {
+            gainNode.connect(filterNode);
+        } else {
+            gainNode.connect(audioContext.destination);
+        }
+        
+        // Timing
+        const currentTime = audioContext.currentTime;
+        const startTime = currentTime + 0.005;
+        const grainDuration = grainSize / rate;
+        const stopTime = startTime + grainDuration;
+        
+        // Courbe de fondu spéciale pour les transitions
+        const fadeTime = grainDuration * 0.4; // Longue transition
+        
+        // Volume légèrement réduit pour le grain de transition (mélange plus doux)
+        const transitionVolume = currentVolume * 0.85;
+        
+        // Appliquer gain avec fondus
+        gainNode.gain.setValueAtTime(0, startTime);
+        gainNode.gain.linearRampToValueAtTime(transitionVolume, startTime + fadeTime);
+        gainNode.gain.linearRampToValueAtTime(0, stopTime);
+        
+        // Démarrer la lecture
+        source.start(startTime, position, grainSize);
+        source.stop(stopTime);
+        
+        // Stocker
+        source.endTime = stopTime;
+        source.gainNode = gainNode;
+        source.grainPosition = position;
+        source.isTransitionGrain = true;
+        audioSources.push(source);
+        
+        return true;
+    } catch (error) {
+        console.error('[Audio] Erreur lors de la planification du grain de transition:', error);
+        return false;
+    }
+}
+
+// Planificateur audio principal
+function scheduleAudioUpdate() {
     if (!isPlaying) return;
     
     const now = performance.now();
     const deltaTime = (now - lastFrameTime) / 1000;
     lastFrameTime = now;
     
-    // Protection contre les grands intervalles (onglet inactif ou surcharge CPU)
-    const safeDeltaTime = Math.min(deltaTime, 0.05); // Max 50ms
+    // Protection contre les grands intervalles
+    const safeDeltaTime = Math.min(deltaTime, 0.05);
     
-    // Mise à jour de la position en fonction de la direction et de la vitesse
-    let positionChange = safeDeltaTime * playbackRate * playDirection;
-    
-    // Protection contre les sauts trop grands en lecture arrière à haute vitesse
-    if (playDirection < 0 && Math.abs(playbackRate) > 2.0) {
-        // Limiter la vitesse de déplacement arrière pour éviter la boucle
-        const maxBackwardChange = safeDeltaTime * 2.0;
-        if (Math.abs(positionChange) > maxBackwardChange) {
-            positionChange = -maxBackwardChange;
-        }
-    }
-    
-    // Appliquer le changement de position
+    // Mise à jour de la position
+    const positionChange = safeDeltaTime * playbackRate * playDirection;
     playbackPosition += positionChange;
     
-    // Limiter la position entre 0 et la durée du morceau
-    if (playbackPosition < 0) {
-        playbackPosition = 0;
-        console.log("[Audio] Début du morceau atteint");
-    } else if (playbackPosition > audioBuffer.duration) {
-        playbackPosition = audioBuffer.duration;
-        console.log("[Audio] Fin du morceau atteinte");
-    }
-    
-    // Mettre à jour le filtre en fonction de la vitesse et direction
-    updateAdvancedFilter(playbackRate, playDirection);
-    
-    // Planifier suffisamment de grains à l'avance
-    // Adaptation: nombre de grains augmente avec la vitesse pour une couverture complète
-    const grainsNeeded = 1 + Math.ceil(Math.abs(playbackRate) / 1.5);
-    for (let i = 0; i < grainsNeeded; i++) {
-        if (pendingGrainQueue.length < MAX_ACTIVE_GRAINS / 2) {
-            const success = scheduleGrain();
-            if (success) {
-                pendingGrainQueue.push(now);
-            }
+    // === GESTION DE LA LECTURE EN BOUCLE ===
+    if (loopPlayback) {
+        // Gérer les limites en mode boucle
+        if (playbackPosition < 0) {
+            // Boucle: début → fin (en lecture arrière)
+            const overshoot = -playbackPosition;
+            playbackPosition = audioBuffer.duration - overshoot;
+            console.log("[Audio] Boucle: passage du début à la fin");
+        } 
+        else if (playbackPosition > audioBuffer.duration) {
+            // Boucle: fin → début (en lecture avant)
+            const overshoot = playbackPosition - audioBuffer.duration;
+            playbackPosition = overshoot;
+            console.log("[Audio] Boucle: passage de la fin au début");
+        }
+    } 
+    else {
+        // Mode sans boucle: arrêter aux limites
+        if (playbackPosition < 0) {
+            playbackPosition = 0;
+            console.log("[Audio] Début du morceau atteint");
+        } else if (playbackPosition > audioBuffer.duration) {
+            playbackPosition = audioBuffer.duration;
+            console.log("[Audio] Fin du morceau atteinte");
         }
     }
     
-    // Nettoyer la file des grains planifiés
-    const grainLifetime = (GRAIN_SIZE * (1 - OVERLAP)) * 1000;
-    while (pendingGrainQueue.length > 0 && now - pendingGrainQueue[0] > grainLifetime) {
-        pendingGrainQueue.shift();
+    // Mettre à jour le filtre
+    updateFilter();
+    
+    // Planifier le grain si nécessaire
+    if (!pendingGrainFlag) {
+        scheduleGrain();
+        pendingGrainFlag = true;
+        
+        // Réinitialiser le drapeau après un délai pour le prochain grain
+        const grainInterval = GRAIN_SIZE * (1 - OVERLAP) / Math.max(0.1, Math.abs(playbackRate));
+        setTimeout(() => {
+            pendingGrainFlag = false;
+        }, grainInterval * 1000);
     }
     
     // Mettre à jour l'affichage
     updatePlaybackDisplay();
     
     // Continuer la boucle
-    audioFrameId = setTimeout(scheduleAudioLoop, UPDATE_INTERVAL);
+    audioFrameId = setTimeout(scheduleAudioUpdate, UPDATE_INTERVAL);
 }
 
 // Démarrer la lecture
@@ -1167,39 +1083,26 @@ function startAudio() {
     
     // Réveiller le contexte audio si nécessaire
     if (audioContext.state === 'suspended') {
-        audioContext.resume().then(() => {
-            console.log('[Audio] Contexte audio repris');
-        }).catch(e => {
-            console.error('[Audio] Erreur lors de la reprise du contexte:', e);
-        });
+        audioContext.resume();
     }
     
-    // Initialiser le système si nécessaire
-    if (!processingChain) {
-        processingChain = createAdvancedAudioProcessingGraph();
-    }
-    
-    // Réinitialiser les variables de suivi
+    // Réinitialiser l'état
     isPlaying = true;
     lastFrameTime = performance.now();
     audioSources = [];
-    pendingGrainQueue = [];
-    lastReportedPosition = playbackPosition;
-    lastPositionUpdate = performance.now();
-    isPositionLooping = false;
+    pendingGrainFlag = false;
+    isLoopTransitioning = false;
     
-    // Démarrer la boucle de contrôle
+    // Démarrer la boucle
     if (audioFrameId) {
         clearTimeout(audioFrameId);
     }
-    
-    // Démarrer le mode vinyle
-    scheduleAudioLoop();
+    scheduleAudioUpdate();
     
     // Mettre à jour l'état
     const statusDisplay = document.getElementById('audioStatus');
     if (statusDisplay) {
-        statusDisplay.textContent = 'État: Lecture (mode vinyle)';
+        statusDisplay.textContent = 'État: Lecture';
         statusDisplay.style.color = '#2ecc71';
     }
     
@@ -1212,13 +1115,13 @@ function pauseAudio() {
     
     isPlaying = false;
     
-    // Arrêter la boucle d'animation
+    // Arrêter la boucle
     if (audioFrameId) {
         clearTimeout(audioFrameId);
         audioFrameId = null;
     }
     
-    // Arrêter proprement toutes les sources actives
+    // Arrêter les sources actives
     stopAllSources();
     
     // Mettre à jour l'état
@@ -1237,13 +1140,13 @@ function stopAudio() {
     
     isPlaying = false;
     
-    // Arrêter la boucle d'animation
+    // Arrêter la boucle
     if (audioFrameId) {
         clearTimeout(audioFrameId);
         audioFrameId = null;
     }
     
-    // Arrêter proprement toutes les sources actives avec un fondu de sortie
+    // Arrêter les sources actives
     stopAllSources();
     
     // Réinitialiser la position
@@ -1261,11 +1164,10 @@ function stopAudio() {
 
 // Arrêter toutes les sources audio actives
 function stopAllSources() {
-    // Arrêter proprement toutes les sources actives
     const now = audioContext.currentTime;
     audioSources.forEach(source => {
         try {
-            // Appliquer un fondu de sortie rapide
+            // Fondu de sortie rapide
             if (source.gainNode) {
                 source.gainNode.gain.cancelScheduledValues(now);
                 source.gainNode.gain.setValueAtTime(source.gainNode.gain.value || 0, now);
@@ -1279,15 +1181,15 @@ function stopAllSources() {
                     if (source.gainNode) source.gainNode.disconnect();
                     source.disconnect();
                 } catch (e) {
-                    // Ignorer les erreurs, la source peut déjà être arrêtée
+                    // Ignorer les erreurs
                 }
             }, 60);
         } catch (e) {
-            // Ignorer les erreurs, la source peut déjà être arrêtée
+            // Ignorer les erreurs
         }
     });
     
-    // Vider la file d'attente après le fondu
+    // Vider la file après le fondu
     setTimeout(() => {
         audioSources = [];
     }, 100);
@@ -1297,7 +1199,7 @@ function stopAllSources() {
 function updatePlaybackDisplay() {
     if (!audioBuffer) return;
     
-    // Mettre à jour l'affichage de la position
+    // Position
     const positionDisplay = document.getElementById('positionDisplay');
     if (positionDisplay) {
         const position = (playbackPosition / audioBuffer.duration) * 100;
@@ -1306,57 +1208,18 @@ function updatePlaybackDisplay() {
         positionDisplay.textContent = `Position: ${Math.round(position)}% (${formattedTime} / ${totalTime})`;
     }
     
-    // Mettre à jour l'affichage de la vitesse
+    // Vitesse
     const speedDisplay = document.getElementById('speedDisplay');
     if (speedDisplay) {
         const directionText = playDirection > 0 ? "avant" : "arrière";
         speedDisplay.textContent = `Vitesse: ${Math.abs(playbackRate).toFixed(2)}x (${directionText})`;
     }
     
-    // Mettre à jour l'affichage du volume
+    // Volume
     const volumeDisplay = document.getElementById('volumeDisplay');
     if (volumeDisplay) {
         volumeDisplay.textContent = `Volume: ${Math.round(currentVolume * 100)}%`;
     }
-}
-
-// Fonction de diagnostic pour l'audio
-function debugAudioState() {
-    console.log('=== ÉTAT AUDIO ACTUEL ===');
-    console.log(`Lecture: ${isPlaying ? 'Oui' : 'Non'}`);
-    console.log(`Position: ${playbackPosition.toFixed(2)}s / ${audioBuffer ? audioBuffer.duration.toFixed(2) : 'N/A'}s`);
-    console.log(`Direction: ${playDirection > 0 ? 'Avant' : 'Arrière'}`);
-    console.log(`Vitesse: ${playbackRate.toFixed(2)}x`);
-    console.log(`Volume: ${(currentVolume * 100).toFixed(1)}%`);
-    console.log(`Grains actifs: ${audioSources.length}`);
-    console.log(`État du contexte audio: ${audioContext ? audioContext.state : 'N/A'}`);
-    console.log(`Taille des grains: ${GRAIN_SIZE}s`);
-    console.log(`Chevauchement: ${OVERLAP * 100}%`);
-    console.log(`Mode fenêtre: ${WINDOW_TYPE}`);
-    console.log(`Mode pitch shift: ${PITCH_SHIFT_MODE ? 'Activé' : 'Désactivé'}`);
-    console.log(`Détection de boucle: ${isPositionLooping ? 'OUI' : 'Non'}`);
-    
-    if (processingChain) {
-        console.log(`Filtre - Fréquence: ${processingChain.lowpass.frequency.value.toFixed(1)}Hz, Q: ${processingChain.lowpass.Q.value.toFixed(2)}`);
-        console.log(`Égaliseur - Freq: ${processingChain.equalizer.frequency.value}Hz, Gain: ${processingChain.equalizer.gain.value}dB`);
-        console.log(`Compresseur - Threshold: ${processingChain.compressor.threshold.value}dB, Ratio: ${processingChain.compressor.ratio.value}:1`);
-    }
-    
-    // Si des grains actifs, afficher leurs détails
-    if (audioSources.length > 0) {
-        console.log('--- Grains actifs ---');
-        const now = audioContext.currentTime;
-        audioSources.forEach((source, index) => {
-            if (index < 5) { // Limiter à 5 pour éviter de surcharger la console
-                console.log(`Grain #${index}: position=${source.grainPosition?.toFixed(2) || '?'}s, fin dans ${(source.endTime - now).toFixed(3)}s, pitch=${source.isPitchShifted ? 'Oui' : 'Non'}`);
-            }
-        });
-        if (audioSources.length > 5) {
-            console.log(`... et ${audioSources.length - 5} autres grains`);
-        }
-    }
-    
-    console.log('=======================');
 }
 
 // Formatage du temps (secondes -> MM:SS)
@@ -1420,16 +1283,9 @@ function updateAudioControls(deltaTime) {
             return;
         }
         
-        const directionChanged = newDirection !== playDirection;
-        
         // Mise à jour de la vitesse et de la direction
         playbackRate = newSpeed;
         playDirection = newDirection;
-        
-        // Si changement de direction, appliquer immédiatement les nouveaux filtres
-        if (directionChanged && processingChain) {
-            updateAdvancedFilter(playbackRate, playDirection);
-        }
         
         // Si pas déjà en lecture, démarrer
         if (!isPlaying) {
