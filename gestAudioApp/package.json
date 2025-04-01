@@ -6,6 +6,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "start-prod": "electron . --disable-dev-tools --disable-gpu-compositing",
     "build": "electron-builder --win",
     "build:portable": "electron-builder --win portable",
     "build:installer": "electron-builder --win nsis",
@@ -30,6 +31,13 @@
           "filter": [
             "*.node"
           ]
+        },
+        {
+          "from": "assets",
+          "to": "assets",
+          "filter": [
+            "**/*"
+          ]
         }
       ]
     },
@@ -51,15 +59,18 @@
       "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
       "!**/{appveyor.yml,.travis.yml,circle.yml}",
       "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
-    ]
+    ],
+    "asar": true,
+    "compression": "maximum",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
   },
   "dependencies": {
     "@abandonware/noble": "^1.9.2-15",
-    "electron-is-dev": "^2.0.0",
     "web-audio-engine": "^0.13.4"
   },
   "devDependencies": {
     "electron": "^28.1.0",
-    "electron-builder": "^24.9.1"
+    "electron-builder": "^24.13.3",
+    "electron-is-dev": "^3.0.1"
   }
 }

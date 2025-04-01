@@ -1,3 +1,155 @@
+// À ajouter au début de votre fichier renderer.js existant
+
+// Système de log amélioré
+const { ipcRenderer } = require('electron');
+
+// Fonction de log améliorée
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+
+// Remplacer console.log pour capturer et relayer les logs au processus principal
+console.log = function() {
+    // Exécuter le comportement original
+    originalConsoleLog.apply(console, arguments);
+    
+    // Formater le message
+    const message = Array.from(arguments).join(' ');
+    
+    // Envoyer au processus principal
+    ipcRenderer.send('log', { level: 'INFO', message });
+    
+    // Afficher dans l'UI si nécessaire (ajouter cette fonctionnalité si désirée)
+};
+
+// Remplacer console.error
+console.error = function() {
+    // Exécuter le comportement original
+    originalConsoleError.apply(console, arguments);
+    
+    // Formater le message
+    const message = Array.from(arguments).join(' ');
+    
+    // Envoyer au processus principal
+    ipcRenderer.send('log', { level: 'ERROR', message });
+};
+
+// Remplacer console.warn
+console.warn = function() {
+    // Exécuter le comportement original
+    originalConsoleWarn.apply(console, arguments);
+    
+    // Formater le message
+    const message = Array.from(arguments).join(' ');
+    
+    // Envoyer au processus principal
+    ipcRenderer.send('log', { level: 'WARN', message });
+};
+
+// Fonction pour créer un log visuel dans l'interface
+function createVisualLog() {
+    // Ne rien faire si un log visuel existe déjà
+    if (document.getElementById('visual-log-container')) return;
+    
+    // Créer le conteneur de log flottant
+    const logContainer = document.createElement('div');
+    logContainer.id = 'visual-log-container';
+    logContainer.style.position = 'fixed';
+    logContainer.style.bottom = '10px';
+    logContainer.style.right = '10px';
+    logContainer.style.width = '300px';
+    logContainer.style.maxHeight = '200px';
+    logContainer.style.overflow = 'auto';
+    logContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    logContainer.style.color = 'white';
+    logContainer.style.padding = '10px';
+    logContainer.style.borderRadius = '5px';
+    logContainer.style.fontSize = '12px';
+    logContainer.style.fontFamily = 'monospace';
+    logContainer.style.zIndex = '9999';
+    logContainer.style.display = 'none'; // Caché par défaut
+    
+    // Bouton pour afficher/masquer les logs
+    const toggleButton = document.createElement('button');
+    toggleButton.textContent = 'Logs';
+    toggleButton.style.position = 'fixed';
+    toggleButton.style.bottom = '10px';
+    toggleButton.style.right = '10px';
+    toggleButton.style.padding = '5px 10px';
+    toggleButton.style.backgroundColor = '#4CAF50';
+    toggleButton.style.color = 'white';
+    toggleButton.style.border = 'none';
+    toggleButton.style.borderRadius = '3px';
+    toggleButton.style.cursor = 'pointer';
+    toggleButton.style.zIndex = '10000';
+    
+    // Gestionnaire pour afficher/masquer
+    toggleButton.addEventListener('click', () => {
+        const isVisible = logContainer.style.display !== 'none';
+        logContainer.style.display = isVisible ? 'none' : 'block';
+        toggleButton.textContent = isVisible ? 'Logs' : 'Masquer';
+    });
+    
+    // Ajouter les éléments au DOM
+    document.body.appendChild(logContainer);
+    document.body.appendChild(toggleButton);
+    
+    // Fonction pour ajouter un message de log
+    window.addLogMessage = function(level, message) {
+        const logEntry = document.createElement('div');
+        logEntry.style.borderBottom = '1px solid rgba(255, 255, 255, 0.2)';
+        logEntry.style.paddingBottom = '5px';
+        logEntry.style.marginBottom = '5px';
+        
+        // Colorer selon le niveau
+        if (level === 'ERROR') {
+            logEntry.style.color = '#ff5252';
+        } else if (level === 'WARN') {
+            logEntry.style.color = '#ffd740';
+        }
+        
+        // Timestamp + message
+        const timestamp = new Date().toLocaleTimeString();
+        logEntry.textContent = `[${timestamp}] ${message}`;
+        
+        // Ajouter au conteneur
+        logContainer.appendChild(logEntry);
+        
+        // Scroller en bas
+        logContainer.scrollTop = logContainer.scrollHeight;
+        
+        // Limiter le nombre d'entrées
+        while (logContainer.children.length > 50) {
+            logContainer.removeChild(logContainer.firstChild);
+        }
+    };
+    
+    // Intercepter les logs pour les afficher visuellement
+    const originalLog = console.log;
+    console.log = function() {
+        originalLog.apply(console, arguments);
+        window.addLogMessage('INFO', Array.from(arguments).join(' '));
+    };
+    
+    const originalError = console.error;
+    console.error = function() {
+        originalError.apply(console, arguments);
+        window.addLogMessage('ERROR', Array.from(arguments).join(' '));
+    };
+    
+    const originalWarn = console.warn;
+    console.warn = function() {
+        originalWarn.apply(console, arguments);
+        window.addLogMessage('WARN', Array.from(arguments).join(' '));
+    };
+}
+
+// Créer l'interface de log lorsque le DOM est chargé
+document.addEventListener('DOMContentLoaded', () => {
+    // Attendre un peu pour s'assurer que tout est chargé
+    setTimeout(createVisualLog, 1000);
+});
+
 const noble = require('@abandonware/noble')
 
 // Variables globales pour les capteurs et l'interface
