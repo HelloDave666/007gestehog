@@ -7,8 +7,9 @@ const deviceList = document.getElementById('deviceList')
 const connectedDevices = new Set()
 const sensorsWithData = new Set() // Pour suivre les capteurs qui affichent des données
 
-const SENSOR_LEFT = 'ce:de:c2:f5:17:be'
-const SENSOR_RIGHT = 'f0:70:c4:de:d1:22'
+// IDs des capteurs - peuvent être modifiés depuis les paramètres
+let SENSOR_LEFT = 'ce:de:c2:f5:17:be'
+let SENSOR_RIGHT = 'f0:70:c4:de:d1:22'
 const LEFT_COLOR = 'blue'
 const RIGHT_COLOR = 'green'
 
@@ -55,13 +56,20 @@ let currentVolume = 1.0
 let lastFrameTime = 0
 let audioFrameId = null
 
+// Nouvelles variables pour l'enregistrement et la sensibilité
+let mediaRecorder = null
+let recordedChunks = []
+let isRecording = false
+let isProcessingRecording = false // Flag pour éviter les doublons de fenêtres
+let SENSITIVITY_FACTOR = 1.0      // Facteur de sensibilité pour les capteurs
+
 // Paramètres optimisés pour une meilleure qualité audio
-const GRAIN_SIZE = 0.35        // Taille des grains (350ms)
-const OVERLAP = 0.92           // Chevauchement (92%)
+let GRAIN_SIZE = 0.35        // Taille des grains (350ms)
+let OVERLAP = 0.92           // Chevauchement (92%)
 const UPDATE_RATE = 60         // Taux de mise à jour (60Hz)
 const UPDATE_INTERVAL = 1000 / UPDATE_RATE
 const MAX_ACTIVE_GRAINS = 8    // Limite de grains actifs
-const WINDOW_TYPE = 'hann'     // Type de fenêtre d'apodisation
+let WINDOW_TYPE = 'hann'     // Type de fenêtre d'apodisation
 
 // Variables pour la lecture en boucle
 let loopPlayback = true        // Par défaut activé
@@ -74,6 +82,88 @@ let pendingGrainFlag = false
 
 // File d'attente pour les sources audio
 let audioSources = []
+
+// SYSTÈME DE DIALOGUE
+const dialogueSystem = {
+    queue: [],              // File d'attente des dialogues
+    isActive: false,        // Si un dialogue est en cours
+    textSpeed: 40,          // Vitesse d'apparition des caractères (ms)
+    currentCharIndex: 0,    // Index du caractère actuel
+    currentDialogue: null,  // Dialogue en cours
+    
+    // Ajouter un dialogue à la file
+    addDialogue(speaker, text, expression = 'neutral', callback = null) {
+        this.queue.push({ speaker, text, expression, callback });
+        
+        // Afficher le conteneur de dialogue
+        document.querySelector('.dialogue-container').style.display = 'flex';
+        
+        // Si aucun dialogue n'est actif, démarrer la séquence
+        if (!this.isActive) {
+            this.nextDialogue();
+        }
+    },
+    
+    // Passer au dialogue suivant
+    nextDialogue() {
+        if (this.queue.length === 0) {
+            this.isActive = false;
+            document.querySelector('.dialogue-container').style.display = 'none';
+            return;
+        }
+        
+        this.isActive = true;
+        this.currentDialogue = this.queue.shift();
+        this.currentCharIndex = 0;
+        
+        // Mettre à jour le portrait (lorsque les images seront disponibles)
+        const portraitImg = document.getElementById('character-image');
+        if (portraitImg) {
+            // À l'avenir, utilisez: portraitImg.src = `./assets/${this.currentDialogue.speaker.toLowerCase()}_${this.currentDialogue.expression}.png`;
+        }
+        
+        // Mettre à jour le nom
+        document.getElementById('speaker-name').textContent = this.currentDialogue.speaker;
+        
+        // Vider le contenu du texte
+        document.getElementById('dialogue-content').textContent = '';
+        
+        // Démarrer l'animation du texte
+        this.animateText();
+    },
+    
+    // Animer l'apparition du texte
+    animateText() {
+        if (this.currentCharIndex < this.currentDialogue.text.length) {
+            const textElement = document.getElementById('dialogue-content');
+            textElement.textContent = this.currentDialogue.text.substring(0, this.currentCharIndex + 1);
+            
+            this.currentCharIndex++;
+            
+            // Continuer l'animation
+            setTimeout(() => this.animateText(), this.textSpeed);
+        } else {
+            // Animation terminée, montrer l'indicateur de continuation
+            document.querySelector('.continue-indicator').style.display = 'block';
+        }
+    },
+    
+    // Accélérer ou compléter immédiatement le texte actuel
+    speedUpText() {
+        if (this.currentCharIndex < this.currentDialogue.text.length) {
+            // Compléter immédiatement le texte
+            document.getElementById('dialogue-content').textContent = this.currentDialogue.text;
+            this.currentCharIndex = this.currentDialogue.text.length;
+            document.querySelector('.continue-indicator').style.display = 'block';
+        } else {
+            // Passer au dialogue suivant
+            if (this.currentDialogue.callback) {
+                this.currentDialogue.callback();
+            }
+            this.nextDialogue();
+        }
+    }
+};
 
 // Gestionnaire d'état Bluetooth
 noble.on('stateChange', async (state) => {
@@ -326,7 +416,7 @@ function updateDeviceInfo(deviceDiv, peripheral) {
     }
     
     console.log(`[UI] Mise à jour infos pour: ${peripheral.address}`)
-    const color = peripheral.address.toLowerCase() === SENSOR_LEFT ? LEFT_COLOR : RIGHT_COLOR
+    const color = peripheral.address.toLowerCase() === SENSOR_LEFT.toLowerCase() ? LEFT_COLOR : RIGHT_COLOR
     
     const infoBasic = deviceDiv.querySelector('.info-basic')
     if (!infoBasic) {
@@ -336,7 +426,7 @@ function updateDeviceInfo(deviceDiv, peripheral) {
 
     // Préserver la valeur de batterie si c'est le capteur gauche
     let batteryText = 'Batterie: --%'
-    if (peripheral.address.toLowerCase() === SENSOR_LEFT) {
+    if (peripheral.address.toLowerCase() === SENSOR_LEFT.toLowerCase()) {
         const batteryElement = deviceDiv.querySelector('.info-basic p:nth-child(6)')
         if (batteryElement) {
             batteryText = batteryElement.textContent
@@ -380,7 +470,7 @@ function updateBatteryLevel(deviceDiv, data) {
         
         const batteryText = deviceDiv.querySelector('.info-basic p:nth-child(6)')
         if (batteryText) {
-            const color = address.toLowerCase() === SENSOR_LEFT ? LEFT_COLOR : RIGHT_COLOR
+            const color = address.toLowerCase() === SENSOR_LEFT.toLowerCase() ? LEFT_COLOR : RIGHT_COLOR
             batteryText.style.color = color
             batteryText.textContent = `Batterie: ${percentage}%`
         } else {
@@ -391,8 +481,8 @@ function updateBatteryLevel(deviceDiv, data) {
 
 function getSensorInfo(address) {
     const addrLower = address.toLowerCase()
-    if (addrLower === SENSOR_LEFT) return { position: 'GAUCHE', color: LEFT_COLOR }
-    if (addrLower === SENSOR_RIGHT) return { position: 'DROIT', color: RIGHT_COLOR }
+    if (addrLower === SENSOR_LEFT.toLowerCase()) return { position: 'GAUCHE', color: LEFT_COLOR }
+    if (addrLower === SENSOR_RIGHT.toLowerCase()) return { position: 'DROIT', color: RIGHT_COLOR }
     return { position: 'INCONNU', color: 'black' }
 }
 
@@ -439,11 +529,11 @@ function processData(data, address) {
     }
 
     // Mettre à jour les valeurs cibles au lieu des valeurs actuelles
-    if (address.toLowerCase() === SENSOR_LEFT) {
+    if (address.toLowerCase() === SENSOR_LEFT.toLowerCase()) {
         targetValues.leftX = normalizedAngles.x
         targetValues.leftY = normalizedAngles.y
         targetValues.leftZ = normalizedAngles.z
-    } else if (address.toLowerCase() === SENSOR_RIGHT) {
+    } else if (address.toLowerCase() === SENSOR_RIGHT.toLowerCase()) {
         targetValues.rightX = normalizedAngles.x
         targetValues.rightY = normalizedAngles.y
         targetValues.rightZ = normalizedAngles.z
@@ -472,7 +562,7 @@ noble.on('discover', (peripheral) => {
     if (peripheral.advertisement.localName?.includes('WT901BLE67')) {
         console.log('[Découverte] Capteur trouvé:', peripheral.address)
         const deviceDiv = document.querySelector(`[data-address="${peripheral.address}"]`)
-        const color = peripheral.address.toLowerCase() === SENSOR_LEFT ? LEFT_COLOR : RIGHT_COLOR
+        const color = peripheral.address.toLowerCase() === SENSOR_LEFT.toLowerCase() ? LEFT_COLOR : RIGHT_COLOR
         
         if (!connectedDevices.has(peripheral.address.toLowerCase()) && peripheral.state !== 'connected') {
             peripheral.connect(error => {
@@ -505,7 +595,7 @@ noble.on('discover', (peripheral) => {
                     console.log('[Services] Découverts pour:', peripheral.address)
                     
                     // Envoi de la commande batterie uniquement pour le capteur gauche
-                    if (peripheral.address.toLowerCase() === SENSOR_LEFT && characteristics.length > 0) {
+                    if (peripheral.address.toLowerCase() === SENSOR_LEFT.toLowerCase() && characteristics.length > 0) {
                         characteristics[0].write(READ_BATTERY_CMD, true, (error) => {
                             if (error) console.error('[Batterie] Erreur lecture:', error)
                         })
@@ -523,7 +613,7 @@ noble.on('discover', (peripheral) => {
                                 
                                 if (data[0] === 0x55) {
                                     // Traiter les données de batterie seulement pour le capteur gauche
-                                    if (data[1] === 0x71 && peripheral.address.toLowerCase() === SENSOR_LEFT) {
+                                    if (data[1] === 0x71 && peripheral.address.toLowerCase() === SENSOR_LEFT.toLowerCase()) {
                                         console.log('[Données] Batterie reçues pour capteur gauche')
                                         updateBatteryLevel(deviceDiv, data)
                                     }
@@ -572,7 +662,7 @@ noble.on('discover', (peripheral) => {
     }
 })
 
-// --- SYSTÈME AUDIO AMÉLIORÉ AVEC LECTURE EN BOUCLE ---
+// --- SYSTÈME AUDIO AMÉLIORÉ AVEC LECTURE EN BOUCLE ET ENREGISTREMENT ---
 
 // Créer une fenêtre d'apodisation pour éliminer les artefacts
 function createWindow(type, length) {
@@ -582,6 +672,18 @@ function createWindow(type, length) {
     if (type === 'hann') {
         for (let i = 0; i < length; i++) {
             window[i] = 0.5 * (1 - Math.cos(i * factor));
+        }
+    } else if (type === 'hamming') {
+        for (let i = 0; i < length; i++) {
+            window[i] = 0.54 - 0.46 * Math.cos(i * factor);
+        }
+    } else if (type === 'rectangle') {
+        for (let i = 0; i < length; i++) {
+            window[i] = 1.0;
+        }
+    } else if (type === 'triangle') {
+        for (let i = 0; i < length; i++) {
+            window[i] = 1.0 - Math.abs((i - (length - 1) / 2) / ((length - 1) / 2));
         }
     } else {
         // Fenêtre simple par défaut
@@ -633,120 +735,236 @@ function initAudio() {
         
         // Créer le graphe de traitement audio
         createAudioProcessingGraph();
-        
-        // Interface utilisateur pour l'état de lecture
-        const controlsContainer = document.getElementById('audioControls');
-        if (controlsContainer) {
-            // État de lecture
-            const statusDisplay = document.createElement('div');
-            statusDisplay.id = 'audioStatus';
-            statusDisplay.style.fontWeight = 'bold';
-            statusDisplay.style.marginTop = '10px';
-            statusDisplay.textContent = 'État: Prêt';
-            controlsContainer.appendChild(statusDisplay);
-            
-            // Option de boucle simple
-            const loopContainer = document.createElement('div');
-            loopContainer.style.marginTop = '10px';
-            
-            const loopCheckbox = document.createElement('input');
-            loopCheckbox.type = 'checkbox';
-            loopCheckbox.id = 'loopCheckbox';
-            loopCheckbox.checked = loopPlayback;
-            
-            const loopLabel = document.createElement('label');
-            loopLabel.htmlFor = 'loopCheckbox';
-            loopLabel.textContent = 'Lecture en boucle';
-            loopLabel.style.marginLeft = '5px';
-            
-            loopCheckbox.addEventListener('change', function() {
-                loopPlayback = this.checked;
-                console.log(`[Audio] Lecture en boucle ${loopPlayback ? 'activée' : 'désactivée'}`);
-            });
-            
-            loopContainer.appendChild(loopCheckbox);
-            loopContainer.appendChild(loopLabel);
-            controlsContainer.appendChild(loopContainer);
-        }
     } catch (e) {
         console.error('[Audio] Erreur création contexte audio:', e);
     }
     
     try {
-        // Sélection du fichier
+        // Trouver les références aux nouveaux éléments d'interface
         const fileInput = document.getElementById('audioFile');
-        const playButton = document.getElementById('playButton');
-        const pauseButton = document.getElementById('pauseButton');
-        const stopButton = document.getElementById('stopButton');
+        const playPauseButton = document.getElementById('playPauseButton');
+        const recordButton = document.getElementById('recordButton');
         
         // Gestion du chargement de fichier
-        fileInput.addEventListener('change', async function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            
-            // Arrêter la lecture en cours
-            stopAudio();
-            
-            // Charger le fichier pour l'élément audio standard
-            const fileURL = URL.createObjectURL(file);
-            audioElement.src = fileURL;
-            audioElement.load();
-            
-            // Charger et décoder le fichier pour Web Audio API
-            try {
-                const reader = new FileReader();
-                reader.onload = async function(event) {
-                    try {
-                        // Décoder les données audio
-                        audioBuffer = await audioContext.decodeAudioData(event.target.result);
-                        playbackPosition = 0;
-                        
-                        // Mettre à jour l'interface
-                        updatePlaybackDisplay();
-                        console.log(`[Audio] Fichier chargé et décodé: ${file.name}`);
-                    } catch (decodeError) {
-                        console.error('[Audio] Erreur lors du décodage:', decodeError);
-                    }
-                };
+        if (fileInput) {
+            fileInput.addEventListener('change', async function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
                 
-                reader.onerror = function() {
-                    console.error('[Audio] Erreur lecture fichier');
-                };
-                
-                reader.readAsArrayBuffer(file);
-            } catch (error) {
-                console.error('[Audio] Erreur lors du chargement:', error);
-            }
-        });
-        
-        // Bouton lecture
-        if (playButton) {
-            playButton.addEventListener('click', function() {
-                if (!audioBuffer) {
-                    alert('Veuillez sélectionner un fichier audio');
-                    return;
-                }
-                startAudio();
-            });
-        }
-        
-        // Bouton pause
-        if (pauseButton) {
-            pauseButton.addEventListener('click', function() {
-                pauseAudio();
-            });
-        }
-        
-        // Bouton stop
-        if (stopButton) {
-            stopButton.addEventListener('click', function() {
+                // Arrêter la lecture en cours
                 stopAudio();
-                playbackPosition = 0;
-                updatePlaybackDisplay();
+                
+                // Charger le fichier pour l'élément audio standard
+                const fileURL = URL.createObjectURL(file);
+                audioElement.src = fileURL;
+                audioElement.load();
+                
+                // Charger et décoder le fichier pour Web Audio API
+                try {
+                    const reader = new FileReader();
+                    reader.onload = async function(event) {
+                        try {
+                            // Décoder les données audio
+                            audioBuffer = await audioContext.decodeAudioData(event.target.result);
+                            playbackPosition = 0;
+                            
+                            // Mettre à jour l'interface
+                            updatePlaybackDisplay();
+                            console.log(`[Audio] Fichier chargé et décodé: ${file.name}`);
+                            
+                            // Activer le bouton d'enregistrement
+                            if (recordButton) {
+                                recordButton.disabled = false;
+                            }
+                        } catch (decodeError) {
+                            console.error('[Audio] Erreur lors du décodage:', decodeError);
+                        }
+                    };
+                    
+                    reader.onerror = function() {
+                        console.error('[Audio] Erreur lecture fichier');
+                    };
+                    
+                    reader.readAsArrayBuffer(file);
+                } catch (error) {
+                    console.error('[Audio] Erreur lors du chargement:', error);
+                }
             });
         }
     } catch (initError) {
         console.error('[Audio] Erreur initialisation audio:', initError);
+    }
+}
+
+// Fonctions pour l'enregistrement audio
+function toggleRecording() {
+    if (isRecording) {
+        stopRecording();
+    } else {
+        startRecording();
+    }
+}
+
+function startRecording() {
+    if (!isPlaying || !audioContext || isRecording) return;
+    
+    console.log('[Audio] Démarrage de l\'enregistrement...');
+    
+    try {
+        // Réinitialiser le flag et les chunks
+        isProcessingRecording = false;
+        recordedChunks = [];
+        
+        // Créer un flux audio à partir de la sortie audio
+        const dest = audioContext.createMediaStreamDestination();
+        filterNode.connect(dest);
+        
+        // Configuration des formats à tester par ordre de préférence (sans MP3)
+        const supportedMimeTypes = [
+            { mimeType: 'audio/webm;codecs=opus', ext: 'webm' },
+            { mimeType: 'audio/webm', ext: 'webm' },
+            { mimeType: 'audio/ogg;codecs=opus', ext: 'ogg' },
+            { mimeType: 'audio/ogg', ext: 'ogg' },
+            { mimeType: 'audio/wav', ext: 'wav' }
+        ];
+        
+        // Trouver le premier format supporté
+        let selectedFormat = null;
+        for (const format of supportedMimeTypes) {
+            if (MediaRecorder.isTypeSupported(format.mimeType)) {
+                selectedFormat = format;
+                console.log(`[Audio] Format supporté trouvé: ${format.mimeType} (extension: ${format.ext})`);
+                break;
+            }
+        }
+        
+        // Options d'enregistrement
+        let options = {};
+        if (selectedFormat) {
+            options.mimeType = selectedFormat.mimeType;
+        }
+        
+        // Qualité maximale possible
+        options.audioBitsPerSecond = 320000; // 320 kbps
+        
+        console.log(`[Audio] Configuration d'enregistrement: ${JSON.stringify(options)}`);
+        
+        // Créer l'enregistreur
+        mediaRecorder = new MediaRecorder(dest.stream, options);
+        
+        // Collecte fréquente des chunks pour assurer la qualité des métadonnées
+        mediaRecorder.ondataavailable = function(event) {
+            if (event.data && event.data.size > 0) {
+                recordedChunks.push(event.data);
+            }
+        };
+        
+        mediaRecorder.onstop = async function() {
+            // Protection contre les appels multiples
+            if (isProcessingRecording) {
+                console.log('[Audio] Traitement d\'enregistrement déjà en cours, ignorer');
+                return;
+            }
+            
+            isProcessingRecording = true;
+            console.log(`[Audio] Fin de l'enregistrement, ${recordedChunks.length} chunks collectés`);
+            
+            try {
+                if (recordedChunks.length === 0) {
+                    console.error('[Audio] Aucune donnée enregistrée');
+                    isProcessingRecording = false;
+                    return;
+                }
+                
+                // Créer le blob avec les données enregistrées
+                const finalBlob = new Blob(recordedChunks, { 
+                    type: mediaRecorder.mimeType || 'audio/webm'
+                });
+                
+                console.log(`[Audio] Blob final créé: ${finalBlob.size} octets, type: ${finalBlob.type}`);
+                
+                // Déterminer l'extension de fichier appropriée
+                let extension = 'webm';
+                if (finalBlob.type.includes('ogg')) extension = 'ogg';
+                if (finalBlob.type.includes('wav')) extension = 'wav';
+                
+                // Téléchargement immédiat
+                const url = URL.createObjectURL(finalBlob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                
+                // Générer un nom de fichier avec horodatage
+                const date = new Date();
+                const dateString = date.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                a.download = `audio-recording-${dateString}.${extension}`;
+                
+                // Ajouter et déclencher immédiatement
+                document.body.appendChild(a);
+                a.click();
+                
+                // Nettoyage immédiat
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                console.log('[Audio] Téléchargement terminé et ressources nettoyées');
+                
+            } catch (error) {
+                console.error('[Audio] Erreur lors du traitement de l\'enregistrement:', error);
+            } finally {
+                // Toujours réinitialiser le flag après traitement
+                isProcessingRecording = false;
+                recordedChunks = [];
+            }
+        };
+        
+        // Démarrer avec des chunks très fréquents
+        mediaRecorder.start(20); // Collecte plus fréquente (20ms)
+        isRecording = true;
+        
+        // Mise à jour de l'interface
+        const recordButton = document.getElementById('recordButton');
+        if (recordButton) {
+            recordButton.classList.add('recording');
+            const recordIcon = recordButton.querySelector('.record-icon');
+            if (recordIcon) {
+                recordIcon.style.backgroundColor = '#fff';
+                recordIcon.style.animation = 'pulse 1s infinite';
+            }
+        }
+        
+        console.log('[Audio] Enregistrement démarré');
+    } catch (error) {
+        console.error('[Audio] Erreur lors du démarrage de l\'enregistrement:', error);
+        alert('Erreur lors du démarrage de l\'enregistrement: ' + error.message);
+    }
+}
+
+function stopRecording() {
+    if (!isRecording || !mediaRecorder) return;
+    
+    console.log('[Audio] Arrêt de l\'enregistrement...');
+    
+    try {
+        // Vérifier que le MediaRecorder est dans un état où il peut être arrêté
+        if (mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
+        isRecording = false;
+        
+        // Mise à jour de l'interface
+        const recordButton = document.getElementById('recordButton');
+        if (recordButton) {
+            recordButton.classList.remove('recording');
+            const recordIcon = recordButton.querySelector('.record-icon');
+            if (recordIcon) {
+                recordIcon.style.backgroundColor = '#fff';
+                recordIcon.style.animation = 'none';
+            }
+        }
+    } catch (error) {
+        console.error('[Audio] Erreur lors de l\'arrêt de l\'enregistrement:', error);
+        isProcessingRecording = false; // Réinitialiser en cas d'erreur
     }
 }
 
@@ -1077,7 +1295,26 @@ function scheduleAudioUpdate() {
     audioFrameId = setTimeout(scheduleAudioUpdate, UPDATE_INTERVAL);
 }
 
-// Démarrer la lecture
+// Fonction d'aide pour mettre à jour l'état du bouton play/pause
+function updatePlayPauseButton(playing) {
+    const playPauseButton = document.getElementById('playPauseButton');
+    if (!playPauseButton) return;
+    
+    const playIcon = playPauseButton.querySelector('.play-icon');
+    const pauseIcon = playPauseButton.querySelector('.pause-icon');
+    
+    if (playIcon && pauseIcon) {
+        if (playing) {
+            playIcon.style.display = 'none';
+            pauseIcon.style.display = 'block';
+        } else {
+            playIcon.style.display = 'block';
+            pauseIcon.style.display = 'none';
+        }
+    }
+}
+
+// Démarrer la lecture avec bouton unique play/pause
 function startAudio() {
     if (!audioBuffer || isPlaying) return;
     
@@ -1106,6 +1343,9 @@ function startAudio() {
         statusDisplay.style.color = '#2ecc71';
     }
     
+    // Mettre à jour l'icône du bouton play/pause
+    updatePlayPauseButton(true);
+    
     console.log(`[Audio] Lecture démarrée à la position ${playbackPosition.toFixed(2)}s`);
 }
 
@@ -1130,6 +1370,9 @@ function pauseAudio() {
         statusDisplay.textContent = 'État: Pause';
         statusDisplay.style.color = '#f39c12';
     }
+    
+    // Mettre à jour l'icône du bouton play/pause
+    updatePlayPauseButton(false);
     
     console.log(`[Audio] Lecture mise en pause à la position ${playbackPosition.toFixed(2)}s`);
 }
@@ -1158,6 +1401,9 @@ function stopAudio() {
         statusDisplay.textContent = 'État: Arrêté';
         statusDisplay.style.color = '#666';
     }
+    
+    // Mettre à jour l'icône du bouton play/pause
+    updatePlayPauseButton(false);
     
     console.log('[Audio] Lecture arrêtée');
 }
@@ -1205,7 +1451,21 @@ function updatePlaybackDisplay() {
         const position = (playbackPosition / audioBuffer.duration) * 100;
         const formattedTime = formatTime(playbackPosition);
         const totalTime = formatTime(audioBuffer.duration);
-        positionDisplay.textContent = `Position: ${Math.round(position)}% (${formattedTime} / ${totalTime})`;
+        positionDisplay.textContent = `${formattedTime} / ${totalTime}`;
+    }
+    
+    // Timeline
+    const timelineProgress = document.getElementById('timelineProgress');
+    if (timelineProgress) {
+        const position = (playbackPosition / audioBuffer.duration) * 100;
+        timelineProgress.style.width = `${position}%`;
+    }
+    
+    // Timeline handle
+    const timelineHandle = document.getElementById('timelineHandle');
+    if (timelineHandle) {
+        const position = (playbackPosition / audioBuffer.duration) * 100;
+        timelineHandle.style.left = `${position}%`;
     }
     
     // Vitesse
@@ -1230,14 +1490,14 @@ function formatTime(timeInSeconds) {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 }
 
-// Contrôle audio avec les capteurs
+// Contrôle audio avec les capteurs (avec facteur de sensibilité)
 function updateAudioControls(deltaTime) {
     // Vérifier les prérequis
     if (!audioBuffer) return;
     
     // CAPTEUR DROIT (Y/Pitch) - contrôle du volume
     const volumeValue = angleToNormalizedValue(currentValues.rightY);
-    const volumePercentage = 50 + (volumeValue * 50);
+    const volumePercentage = 50 + (volumeValue * 50 * SENSITIVITY_FACTOR); // Application du facteur de sensibilité
     const volumeFinal = Math.min(100, Math.max(0, volumePercentage));
     
     // Appliquer le volume avec un léger lissage
@@ -1252,18 +1512,24 @@ function updateAudioControls(deltaTime) {
     // CAPTEUR GAUCHE (Y/Pitch) - contrôle de la vitesse et direction
     const speedValue = angleToNormalizedValue(currentValues.leftY);
     
-    // Calculer la vitesse et la direction
+    // Calculer la vitesse et la direction avec sensibilité ajustée
     let newSpeed = 0;
     let newDirection = 1;
     
     if (speedValue >= 0) {
         // Vitesse positive (avant)
-        newSpeed = 1.0 + speedValue;
+        newSpeed = 1.0 + (speedValue * SENSITIVITY_FACTOR);
         newDirection = 1;
     } else {
         // Vitesse négative (arrière)
-        newSpeed = Math.abs(speedValue * 2);
+        newSpeed = Math.abs(speedValue * 2 * SENSITIVITY_FACTOR);
         newDirection = -1;
+    }
+    
+    // Vitesse minimale pour éviter la pause (CORRECTION)
+    const MIN_SPEED = 0.2; // Vitesse minimale pour éviter la pause complète
+    if (newSpeed < MIN_SPEED) {
+        newSpeed = MIN_SPEED;
     }
     
     // Arrondir pour éviter les micro-variations
@@ -1271,25 +1537,19 @@ function updateAudioControls(deltaTime) {
     
     // Si changement significatif de vitesse ou de direction
     if (Math.abs(newSpeed - playbackRate) > 0.05 || newDirection !== playDirection) {
-        // Si proche de zéro, mettre en pause
-        if (newSpeed < 0.05) {
-            pauseAudio();
-            
-            // Mise à jour de l'affichage
-            const speedDisplay = document.getElementById('speedDisplay');
-            if (speedDisplay) {
-                speedDisplay.textContent = `Vitesse: 0.00x (pause)`;
-            }
-            return;
-        }
-        
         // Mise à jour de la vitesse et de la direction
         playbackRate = newSpeed;
         playDirection = newDirection;
         
-        // Si pas déjà en lecture, démarrer
+        // Si pas déjà en lecture, démarrer ou reprendre la lecture
+        const wasPlaying = isPlaying;
         if (!isPlaying) {
             startAudio();
+        }
+        
+        // Synchronisation de l'UI si l'état a changé
+        if (!wasPlaying && isPlaying) {
+            updatePlayPauseButton(true);
         }
         
         // Mise à jour de l'affichage de la vitesse
@@ -1301,16 +1561,343 @@ function updateAudioControls(deltaTime) {
     }
 }
 
-// Initialiser l'audio lorsque la page est chargée
+// Fonction pour tester le système de dialogue
+function testDialogueSystem() {
+    dialogueSystem.addDialogue("Handy", "Je me demande si je peux réparer ce dispositif audio...");
+    dialogueSystem.addDialogue("Echo", "Ces contrôles ressemblent à ceux que ton père utilisait.");
+    dialogueSystem.addDialogue("Handy", "Tu as raison! Les mouvements semblent déclencher des changements dans la musique.");
+}
+
+// Initialiser l'audio et l'interface lorsque la page est chargée
 document.addEventListener('DOMContentLoaded', () => {
     try {
+        // Initialisation audio
         initAudio();
+        
+        // Configuration de l'interface améliorée
+        // Onglets
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        // Fonction pour activer un onglet
+        function activateTab(tabId) {
+            // Désactiver tous les onglets
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            // Activer l'onglet sélectionné
+            const selectedTab = document.querySelector(`[data-tab="${tabId}"]`);
+            if (selectedTab) {
+                selectedTab.classList.add('active');
+                document.getElementById(tabId).classList.add('active');
+            }
+        }
+        
+        // Ajouter les écouteurs d'événements aux boutons d'onglets
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const tabId = button.getAttribute('data-tab');
+                activateTab(tabId);
+            });
+        });
+        
+        // S'assurer que le premier onglet est activé au démarrage
+        activateTab('mainTab');
+        
+        // Slider de sensibilité
+        const sensitivitySlider = document.getElementById('sensitivitySlider');
+        const sensitivityValue = document.getElementById('sensitivityValue');
+        
+        if (sensitivitySlider && sensitivityValue) {
+            sensitivitySlider.addEventListener('input', function() {
+                SENSITIVITY_FACTOR = parseFloat(this.value);
+                sensitivityValue.textContent = SENSITIVITY_FACTOR.toFixed(1);
+                console.log('[Capteurs] Sensibilité modifiée:', SENSITIVITY_FACTOR);
+            });
+        }
+        
+        // Paramètres audio avancés
+        const grainSizeInput = document.getElementById('grainSizeInput');
+        const overlapInput = document.getElementById('overlapInput');
+        const windowTypeSelect = document.getElementById('windowTypeSelect');
+        
+        if (grainSizeInput) {
+            grainSizeInput.value = GRAIN_SIZE * 1000;
+            grainSizeInput.addEventListener('change', function() {
+                GRAIN_SIZE = parseInt(this.value) / 1000;
+                console.log('[Audio] Taille de grain modifiée:', GRAIN_SIZE);
+            });
+        }
+        
+        if (overlapInput) {
+            overlapInput.value = OVERLAP * 100;
+            overlapInput.addEventListener('change', function() {
+                OVERLAP = parseInt(this.value) / 100;
+                console.log('[Audio] Chevauchement modifié:', OVERLAP);
+            });
+        }
+        
+        if (windowTypeSelect) {
+            windowTypeSelect.value = WINDOW_TYPE;
+            windowTypeSelect.addEventListener('change', function() {
+                WINDOW_TYPE = this.value;
+                console.log('[Audio] Type de fenêtre modifié:', WINDOW_TYPE);
+            });
+        }
+        
+        // Ajout des paramètres de capteurs dans l'onglet Sound Control
+        const soundControlTab = document.getElementById('soundTab');
+        if (soundControlTab) {
+            // Vérifie si la section de paramètres existe déjà, sinon la crée
+            let sensorParamsSection = soundControlTab.querySelector('.sensor-params-section');
+            
+            if (!sensorParamsSection) {
+                sensorParamsSection = document.createElement('div');
+                sensorParamsSection.className = 'sensor-params-section settings-section';
+                
+                // Ajouter un titre pour cette section
+                const sectionTitle = document.createElement('h3');
+                sectionTitle.textContent = 'Paramètres des capteurs';
+                sensorParamsSection.appendChild(sectionTitle);
+                
+                // Conteneur pour les paramètres
+                const paramsContainer = document.createElement('div');
+                paramsContainer.className = 'params-container';
+                
+                // 1. Adresses des capteurs
+                const leftSensorIdContainer = document.createElement('div');
+                leftSensorIdContainer.className = 'setting-item';
+                leftSensorIdContainer.innerHTML = `
+                    <label for="customLeftSensorId">Adresse capteur gauche:</label>
+                    <input type="text" id="customLeftSensorId" value="${SENSOR_LEFT}">
+                `;
+                paramsContainer.appendChild(leftSensorIdContainer);
+                
+                const rightSensorIdContainer = document.createElement('div');
+                rightSensorIdContainer.className = 'setting-item';
+                rightSensorIdContainer.innerHTML = `
+                    <label for="customRightSensorId">Adresse capteur droit:</label>
+                    <input type="text" id="customRightSensorId" value="${SENSOR_RIGHT}">
+                `;
+                paramsContainer.appendChild(rightSensorIdContainer);
+                
+                // 2. Inversion main droite/gauche
+                const swapHandsContainer = document.createElement('div');
+                swapHandsContainer.className = 'setting-item';
+                swapHandsContainer.innerHTML = `
+                    <label for="swapHands">Inverser main droite et gauche:</label>
+                    <input type="checkbox" id="swapHands">
+                `;
+                paramsContainer.appendChild(swapHandsContainer);
+                
+                // Bouton d'application des changements
+                const applyButton = document.createElement('button');
+                applyButton.textContent = 'Appliquer les changements';
+                applyButton.className = 'apply-button';
+                applyButton.style.backgroundColor = '#4CAF50';
+                applyButton.style.color = 'white';
+                applyButton.style.border = 'none';
+                applyButton.style.padding = '8px 16px';
+                applyButton.style.marginTop = '15px';
+                applyButton.style.borderRadius = '4px';
+                applyButton.style.cursor = 'pointer';
+                
+                // Ajout des gestionnaires d'événements
+                applyButton.addEventListener('click', function() {
+                    const newLeftId = document.getElementById('customLeftSensorId').value.trim();
+                    const newRightId = document.getElementById('customRightSensorId').value.trim();
+                    const swapHands = document.getElementById('swapHands').checked;
+                    
+                    if (newLeftId && newRightId) {
+                        // Sauvegarder les anciennes valeurs pour la comparaison
+                        const oldLeftId = SENSOR_LEFT;
+                        const oldRightId = SENSOR_RIGHT;
+                        
+                        // Appliquer les modifications selon l'état de swapHands
+                        if (swapHands) {
+                            SENSOR_LEFT = newRightId;
+                            SENSOR_RIGHT = newLeftId;
+                            console.log('[Capteurs] Inversion des mains: gauche ↔ droite');
+                        } else {
+                            SENSOR_LEFT = newLeftId;
+                            SENSOR_RIGHT = newRightId;
+                        }
+                        
+                        console.log(`[Capteurs] ID capteur gauche modifié: ${SENSOR_LEFT}`);
+                        console.log(`[Capteurs] ID capteur droit modifié: ${SENSOR_RIGHT}`);
+                        
+                        // Afficher confirmation
+                        alert('Paramètres des capteurs mis à jour. Redémarrez le scan pour appliquer les changements.');
+                        
+                        // Si les IDs ont changé, suggérer un nouveau scan
+                        if (oldLeftId !== SENSOR_LEFT || oldRightId !== SENSOR_RIGHT) {
+                            // Réinitialiser les capteurs connectés
+                            connectedDevices.clear();
+                            sensorsWithData.clear();
+                            
+                            // Mettre à jour l'interface pour refléter le changement
+                            if (deviceList) {
+                                deviceList.innerHTML = '';
+                                deviceList.appendChild(createDeviceDisplay('GAUCHE', LEFT_COLOR, SENSOR_LEFT));
+                                deviceList.appendChild(createDeviceDisplay('DROIT', RIGHT_COLOR, SENSOR_RIGHT));
+                            }
+                            
+                            // Activer le bouton de scan
+                            enableScanButton("Rechercher les capteurs", "#4CAF50", true);
+                        }
+                    } else {
+                        alert('Veuillez entrer des adresses valides pour les deux capteurs.');
+                    }
+                });
+                
+                paramsContainer.appendChild(applyButton);
+                sensorParamsSection.appendChild(paramsContainer);
+                
+                // Ajouter la section au bas de l'onglet Sound Control
+                soundControlTab.appendChild(sensorParamsSection);
+            }
+        }
+        
+        // Espace narratif - Ajout de l'image de Rita avec méthodes alternatives
+        const mainContent = document.getElementById('mainContent');
+        if (mainContent) {
+            // Créer un conteneur pour l'image et le dialogue
+            const characterContainer = document.createElement('div');
+            characterContainer.className = 'character-container';
+            
+            // Ajouter l'image du personnage avec plusieurs tentatives de chemins
+            const characterImg = document.createElement('img');
+            // Essayer plusieurs chemins possibles
+            const possiblePaths = [
+                './assets/placeholder-character.png',
+                '../assets/placeholder-character.png',
+                'assets/placeholder-character.png',
+                '/assets/placeholder-character.png'
+            ];
+            
+            let imgLoaded = false;
+            
+            function tryNextPath(index) {
+                if (index >= possiblePaths.length) {
+                    console.error('[Narratif] Impossible de charger l\'image de Rita avec tous les chemins essayés');
+                    // Créer un élément visuel de remplacement
+                    const placeholderDiv = document.createElement('div');
+                    placeholderDiv.style.width = '200px';
+                    placeholderDiv.style.height = '300px';
+                    placeholderDiv.style.backgroundColor = '#ddd';
+                    placeholderDiv.style.display = 'flex';
+                    placeholderDiv.style.justifyContent = 'center';
+                    placeholderDiv.style.alignItems = 'center';
+                    placeholderDiv.style.borderRadius = '8px';
+                    placeholderDiv.textContent = 'Image Rita';
+                    characterContainer.appendChild(placeholderDiv);
+                    return;
+                }
+                
+                characterImg.src = possiblePaths[index];
+                console.log(`[Narratif] Tentative de chargement de l'image: ${possiblePaths[index]}`);
+                
+                characterImg.onload = () => {
+                    console.log(`[Narratif] Image de Rita chargée avec succès depuis: ${possiblePaths[index]}`);
+                    imgLoaded = true;
+                };
+                
+                characterImg.onerror = () => {
+                    console.warn(`[Narratif] Échec du chargement depuis: ${possiblePaths[index]}`);
+                    tryNextPath(index + 1);
+                };
+            }
+            
+            // Démarrer la tentative de chargement
+            characterImg.alt = 'Rita';
+            characterImg.className = 'character-image';
+            tryNextPath(0);
+            
+            // Ajouter l'image au conteneur
+            characterContainer.appendChild(characterImg);
+            
+            // Ajouter une boîte de dialogue par défaut
+            const dialogBox = document.createElement('div');
+            dialogBox.className = 'dialog-box';
+            dialogBox.innerHTML = '<p>Bienvenue dans Heart Of Glass, l\'aventure de Rita!</p>';
+            characterContainer.appendChild(dialogBox);
+            
+            // Ajouter le tout au contenu principal
+            mainContent.appendChild(characterContainer);
+            
+            // Afficher aussi le chemin de l'image
+            console.log('[Narratif] Chemin absolu du répertoire de travail:', window.location.href);
+        }
+        
+        // Espace narratif - interaction
+        const narrativeSpace = document.querySelector('.narrative-space');
+        if (narrativeSpace) {
+            narrativeSpace.addEventListener('click', function() {
+                if (dialogueSystem.isActive) {
+                    dialogueSystem.speedUpText();
+                } else {
+                    // Pour tester le dialogue si aucun n'est actif
+                    testDialogueSystem();
+                }
+            });
+        }
+        
+        // Interaction avec la timeline
+        const timelineContainer = document.getElementById('timelineContainer');
+        if (timelineContainer) {
+            timelineContainer.addEventListener('click', function(e) {
+                if (!audioBuffer) return;
+                
+                const rect = this.getBoundingClientRect();
+                const position = (e.clientX - rect.left) / rect.width;
+                playbackPosition = position * audioBuffer.duration;
+                
+                updatePlaybackDisplay();
+                console.log(`[Audio] Position changée manuellement: ${playbackPosition.toFixed(2)}s`);
+            });
+        }
+        
+        // Loopback checkbox
+        const loopCheckbox = document.getElementById('loopCheckbox');
+        if (loopCheckbox) {
+            loopCheckbox.checked = loopPlayback;
+            loopCheckbox.addEventListener('change', function() {
+                loopPlayback = this.checked;
+                console.log(`[Audio] Lecture en boucle ${loopPlayback ? 'activée' : 'désactivée'}`);
+            });
+        }
+        
+        // Gestionnaire d'événement pour le bouton play/pause
+        const playPauseButton = document.getElementById('playPauseButton');
+        if (playPauseButton) {
+            playPauseButton.addEventListener('click', function() {
+                if (!audioBuffer) {
+                    alert('Veuillez sélectionner un fichier audio');
+                    return;
+                }
+                
+                if (isPlaying) {
+                    pauseAudio();
+                } else {
+                    startAudio();
+                }
+            });
+        }
+        
+        // Bouton d'enregistrement
+        const recordButton = document.getElementById('recordButton');
+        if (recordButton) {
+            recordButton.addEventListener('click', toggleRecording);
+            recordButton.disabled = !audioBuffer;
+        }
         
         // Nettoyer si nécessaire
         window.addEventListener('beforeunload', () => {
             stopAnimationLoop();
             stopAudio();
         });
+        
+        console.log('[Initialisation] Interface et audio initialisés avec succès');
     } catch (e) {
         console.error('[Démarrage] Erreur initialisation:', e);
     }
