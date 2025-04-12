@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Application de gestion audio avec capteurs BLE",
   "author": "David Arnaud <davidarnaud001@gmail.com>",
-  "main": "main.js",
+  "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
     "start-prod": "electron . --disable-dev-tools --disable-gpu-compositing",

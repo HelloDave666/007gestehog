@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <title>Heart Of Glass</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="assets/css/narrative.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
     <div class="container">
@@ -21,9 +23,7 @@
         
         <!-- Onglet principal - Heart Of Glass -->
         <div id="mainTab" class="tab-content active">
-            <div id="mainContent" class="narrative-space">
-                <!-- L'image et le dialogue seront ajoutés ici par JavaScript -->
-            </div>
+            <!-- Le système narratif sera injecté ici par narrativeSystem.js -->
         </div>
         
         <!-- Onglet Bluetooth - Blue Tools -->
@@ -56,14 +56,14 @@
                 <div id="audioControls">
                     <div class="controls-container">
                         <button id="playPauseButton" class="play-button">
-                            <span class="play-icon"></span>
-                            <span class="pause-icon" style="display: none;"></span>
+                            <span class="play-icon"><i class="fas fa-play"></i></span>
+                            <span class="pause-icon" style="display: none;"><i class="fas fa-pause"></i></span>
                         </button>
                         
                         <button id="recordButton" class="record-button" disabled>
-                            <span class="record-icon"></span>
-                            Enregistrer
+                            <i class="fas fa-microphone"></i> Enregistrer
                         </button>
+                        <div id="recordingStatus" class="recording-status" style="display: none;">00:00</div>
                     </div>
                     
                     <div id="timelineContainer">
@@ -120,18 +120,8 @@
         </div>
     </div>
     
-    <!-- Système de dialogue pour Heart Of Glass -->
-    <div class="dialogue-container" style="display: none;">
-        <div class="character-portrait">
-            <img id="character-image" src="assets/placeholder-character.png" alt="Character">
-        </div>
-        <div class="dialogue-box">
-            <div id="speaker-name" class="speaker-name">Speaker</div>
-            <div id="dialogue-content" class="dialogue-content">Dialogue content will go here...</div>
-            <div class="continue-indicator" style="display: none;">▼</div>
-        </div>
-    </div>
+    <!-- Note: Le système de dialogue pour Heart Of Glass est maintenant géré par narrativeSystem.js -->
     
-    <script src="renderer.js"></script>
+    <script src="src/renderer/renderer.js"></script>
 </body>
 </html>

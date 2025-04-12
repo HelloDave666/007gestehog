@@ -1,0 +1,158 @@
+/* Styles pour le système narratif */
+
+.narrative-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+  font-family: 'Arial', sans-serif;
+}
+
+.guide-section {
+  margin-bottom: 20px;
+}
+
+.guide-section h2 {
+  color: #3498db;
+  margin-bottom: 15px;
+}
+
+.lesson-selector {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lesson-selector select {
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  min-width: 200px;
+}
+
+.lesson-selector button {
+  padding: 8px 16px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.lesson-selector button:hover {
+  background-color: #2980b9;
+}
+
+/* Style pour le conteneur de dialogue inspiré de Celeste */
+.dialogue-container {
+  display: none;
+  position: relative;
+  margin-top: 20px;
+  max-width: 800px;
+  width: 100%;
+  min-height: 150px;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.dialogue-frame {
+  display: flex;
+  width: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+}
+
+.character-portrait {
+  width: 150px;
+  height: 150px;
+  overflow: hidden;
+  background-color: #2c3e50;
+  border-right: 3px solid #3498db;
+}
+
+.character-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dialogue-text-container {
+  flex: 1;
+  padding: 15px;
+  position: relative;
+}
+
+.dialogue-speaker {
+  font-weight: bold;
+  font-size: 1.2em;
+  color: #3498db;
+  margin-bottom: 8px;
+}
+
+.dialogue-content {
+  font-size: 1.05em;
+  line-height: 1.5;
+  min-height: 80px;
+}
+
+.continue-indicator {
+  position: absolute;
+  bottom: 10px;
+  right: 15px;
+  color: #3498db;
+  font-size: 1.2em;
+  animation: bounce 0.5s infinite alternate;
+}
+
+@keyframes bounce {
+  from { transform: translateY(0); }
+  to { transform: translateY(-5px); }
+}
+
+/* Style pour les exercices */
+.exercise-container {
+  display: none;
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f0f8ff;
+  border-left: 5px solid #3498db;
+  border-radius: 5px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.exercise-instructions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exercise-instructions h3 {
+  color: #3498db;
+  margin: 0;
+}
+
+.exercise-instructions p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+#exercise-complete-btn {
+  align-self: flex-end;
+  padding: 8px 16px;
+  background-color: #2ecc71;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 15px;
+}
+
+#exercise-complete-btn:hover {
+  background-color: #27ae60;
+}

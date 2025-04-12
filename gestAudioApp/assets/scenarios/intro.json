@@ -1,0 +1,34 @@
+{
+    "id": "intro",
+    "title": "Introduction à Heart of Glass",
+    "steps": [
+      {
+        "type": "text",
+        "content": "Bienvenue dans Heart of Glass, une expérience interactive entre son et mouvement.",
+        "image": "placeholder-character.png"
+      },
+      {
+        "type": "dialogue",
+        "speaker": "Guide",
+        "content": "Pour commencer, prenez les capteurs dans vos mains.",
+        "image": "placeholder-character.png"
+      },
+      {
+        "type": "dialogue",
+        "speaker": "Guide",
+        "content": "Le capteur gauche contrôle la vitesse et la direction de la lecture.",
+        "image": "placeholder-guide.png"
+      },
+      {
+        "type": "dialogue",
+        "speaker": "Guide",
+        "content": "Le capteur droit contrôle le volume.",
+        "image": "placeholder-guide.png"
+      },
+      {
+        "type": "text",
+        "content": "Vous êtes maintenant prêt à commencer l'expérience !",
+        "image": "placeholder-character.png"
+      }
+    ]
+  }

@@ -1,0 +1,600 @@
+/* Styles généraux */
+body {
+    font-family: Arial;
+    margin: 20px;
+    background-color: #f5f5f5;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+h1, h2, h3 {
+    color: #333;
+}
+
+/* Système d'onglets */
+.tabs {
+    display: flex;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #ddd;
+    flex-wrap: wrap; /* Pour gérer les onglets sur plusieurs lignes si besoin */
+}
+
+.tab-button {
+    padding: 10px 15px;
+    background-color: #f1f1f1;
+    border: none;
+    border-radius: 5px 5px 0 0;
+    cursor: pointer;
+    font-size: 15px;
+    margin-right: 5px;
+    margin-bottom: -1px; /* Pour cacher la bordure inférieure quand actif */
+    transition: background-color 0.3s;
+    white-space: nowrap; /* Évite le retour à la ligne dans le texte du bouton */
+}
+
+.tab-button:hover {
+    background-color: #e0e0e0;
+}
+
+.tab-button.active {
+    background-color: #4CAF50;
+    color: white;
+    border-bottom: 1px solid #4CAF50;
+}
+
+.tab-content {
+    display: none;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 0 5px 5px 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Layout principal */
+.main-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.section {
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Bluetooth section */
+.bluetooth-section {
+    flex: 1;
+}
+
+#scanButton {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 10px 0;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.device-list {
+    margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.device-info {
+    border: 1px solid #ddd;
+    padding: 15px;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+    flex: 1;
+    min-width: 300px;
+    position: relative;
+}
+
+.status-indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    position: absolute;
+    top: 15px;
+    right: 15px;
+}
+
+.status-connected {
+    background-color: #2ecc71;
+    box-shadow: 0 0 5px #2ecc71;
+}
+
+.status-disconnected {
+    background-color: #e74c3c;
+    box-shadow: 0 0 5px #e74c3c;
+}
+
+.info-basic, .info-sensor {
+    margin-top: 10px;
+}
+
+/* Audio controls */
+.audio-section {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+#audioControls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.file-input-container {
+    margin-bottom: 15px;
+}
+
+.controls-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 10px;
+}
+
+/* Affichage des informations audio */
+.display-text {
+    font-size: 14px;
+    color: #555;
+    margin: 5px 0;
+}
+
+/* Timeline */
+#timelineContainer {
+    height: 10px;
+    background-color: #eee;
+    border-radius: 5px;
+    position: relative;
+    cursor: pointer;
+    margin: 10px 0;
+}
+
+#timelineBackground {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    background-color: #ddd;
+    border-radius: 5px;
+}
+
+#timelineProgress {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0;
+    background-color: #4CAF50;
+    border-radius: 5px;
+}
+
+#timelineHandle {
+    position: absolute;
+    top: -4px;
+    left: 0;
+    width: 18px;
+    height: 18px;
+    background-color: #4CAF50;
+    border-radius: 50%;
+    transform: translateX(-50%);
+    cursor: grab;
+}
+
+/* Contrôle de sensibilité */
+.sensitivity-control {
+    margin-top: 20px;
+}
+
+.sensitivity-slider-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#sensitivitySlider {
+    flex-grow: 1;
+    height: 5px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: #ddd;
+    outline: none;
+    border-radius: 5px;
+}
+
+#sensitivitySlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #4CAF50;
+    cursor: pointer;
+}
+
+#sensitivitySlider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #4CAF50;
+    cursor: pointer;
+}
+
+.sensitivity-value {
+    min-width: 80px;
+    text-align: left;
+}
+
+/* Espace narratif */
+.narrative-space {
+    margin-top: 20px;
+    min-height: 300px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    background-color: #f9f9f9;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end; /* Placer le dialogue en bas */
+    cursor: pointer;
+    position: relative; /* Ajouté pour permettre le positionnement absolu de l'image */
+}
+
+/* Améliorations pour l'affichage du personnage */
+.character-container {
+    position: absolute;
+    top: 20px;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+.character-image {
+    max-width: 220px;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    background-color: #fff;
+    border: 1px solid #ddd;
+}
+
+.dialog-box {
+    background-color: #fff;
+    border: 2px solid #333;
+    border-radius: 10px;
+    padding: 15px;
+    margin-top: 10px;
+    max-width: 80%;
+    position: relative;
+    min-width: 300px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+}
+
+.dialog-box:before {
+    content: '';
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 10px solid transparent;
+    border-bottom-color: #333;
+}
+
+.dialog-box p {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.dialogue-container {
+    display: flex;
+    width: 100%;
+    max-width: 800px;
+    background-color: rgba(0, 0, 0, 0.8);
+    border-radius: 10px;
+    padding: 15px;
+    color: white;
+    margin-bottom: 10px;
+}
+
+.character-portrait {
+    width: 80px;
+    height: 80px;
+    margin-right: 15px;
+    border-radius: 5px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.character-portrait img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.dialogue-box {
+    flex-grow: 1;
+    position: relative;
+}
+
+.speaker-name {
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #4CAF50;
+}
+
+.dialogue-content {
+    line-height: 1.5;
+    font-size: 1.1em;
+}
+
+.continue-indicator {
+    position: absolute;
+    bottom: -10px;
+    right: 10px;
+    font-size: 20px;
+    animation: bounce 0.8s infinite;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+
+/* Paramètres */
+.settings-section {
+    margin-bottom: 30px;
+}
+
+.setting-item {
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+}
+
+.setting-item label {
+    min-width: 200px;
+    margin-right: 10px;
+}
+
+.setting-item input[type="text"],
+.setting-item input[type="number"],
+.setting-item select {
+    padding: 5px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    width: 200px;
+}
+
+/* Théorie */
+.theory-content {
+    min-height: 400px;
+}
+
+/* Styles pour l'onglet Knowledge */
+#knowledgeTab .knowledge-content {
+    padding: 20px;
+    min-height: 300px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+}
+
+/* Amélioration des icônes play/pause */
+.play-icon {
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 10px 0 10px 15px;
+    border-color: transparent transparent transparent #fff;
+    display: block;
+    position: absolute;
+    left: 55%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.pause-icon {
+    width: 14px;
+    height: 16px;
+    display: block;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.pause-icon:before,
+.pause-icon:after {
+    content: '';
+    width: 4px;
+    height: 16px;
+    background-color: #fff;
+    position: absolute;
+    top: 0;
+}
+
+.pause-icon:before {
+    left: 3px;
+}
+
+.pause-icon:after {
+    right: 3px;
+}
+
+/* Bouton d'enregistrement */
+.record-button {
+    background-color: #e74c3c;
+    color: white;
+    border-radius: 25px;
+    padding: 8px 16px;
+    font-size: 16px;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.record-button .record-icon {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: white;
+    display: inline-block;
+}
+
+.record-button.recording .record-icon {
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* Amélioration du bouton play/pause principal */
+.play-button {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: #2ecc71;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.play-button:hover {
+    background-color: #27ae60;
+}
+
+.play-button:active {
+    transform: scale(0.98);
+}
+
+/* Style pour le bouton désactivé */
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Info container */
+.info-container {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+}
+
+/* Option de boucle */
+.loop-container {
+    margin: 15px 0;
+    display: flex;
+    align-items: center;
+}
+
+.loop-container input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.status-text {
+    font-weight: bold;
+    margin-top: 10px;
+    color: #666;
+}
+
+.advanced-settings {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #ddd;
+}
+
+.advanced-settings h3 {
+    margin-bottom: 15px;
+    color: #555;
+}
+
+/* Animation pour l'apparition progressive des dialogues */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.dialog-box {
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* Améliorations pour les paramètres de capteurs */
+.sensor-params-section {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #ddd;
+}
+
+.params-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.setting-item {
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+}
+
+.setting-item input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+}
+
+.apply-button:hover {
+    background-color: #388e3c !important;
+}
+
+.apply-button:active {
+    transform: scale(0.98);
+}
+
+/* Améliorations pour le responsive */
+@media (max-width: 768px) {
+    .tabs {
+        flex-direction: column;
+    }
+    
+    .tab-button {
+        margin-bottom: 5px;
+        border-radius: 5px;
+    }
+}
