@@ -494,7 +494,7 @@ function setupAudioEvents(audioSystem) {
 /**
  * Charge le module Narratif
  */
-function loadNarrativeModule() {
+async function loadNarrativeModule() {
     try {
         // Vérifier si le module est déjà chargé
         if (window.narrativeModuleLoaded) return;
@@ -502,6 +502,29 @@ function loadNarrativeModule() {
         // Détection du chemin de base de l'application
         const appRoot = path.resolve(process.cwd());
         console.log('[Debug] Chargement du module narratif...');
+        
+        // Vérifier/créer le répertoire utils si nécessaire
+        const utilsDir = path.join(appRoot, 'src', 'renderer', 'utils');
+        if (!fs.existsSync(utilsDir)) {
+            console.log('[Debug] Création du répertoire utils...');
+            fs.mkdirSync(utilsDir, { recursive: true });
+        }
+        
+        // Charger d'abord le gestionnaire de ressources
+        const resourceManagerPath = path.join(appRoot, 'src', 'renderer', 'utils', 'resourceManager.js');
+        
+        // Vérifier si le fichier existe
+        let resourceManager;
+        if (!fs.existsSync(resourceManagerPath)) {
+            console.warn('[Debug] Gestionnaire de ressources non trouvé, création du fichier...');
+            
+            // Le code du gestionnaire de ressources serait importé ici dans un environnement réel
+            // Pour cette démo, nous supposons que le fichier est déjà créé
+            throw new Error('Le gestionnaire de ressources doit être créé manuellement');
+        } else {
+            console.log('[Debug] Chargement du gestionnaire de ressources...');
+            resourceManager = require(resourceManagerPath);
+        }
         
         // Chemin absolu vers le module Narratif
         const modulePath = path.join(appRoot, 'src', 'renderer', 'narrative', 'narrativeSystem.js');
@@ -520,7 +543,7 @@ function loadNarrativeModule() {
             
             if (narrativeTab) {
                 // Initialiser le système narratif dans l'onglet principal
-                narrativeSystem.initNarrativeSystem(narrativeTab);
+                await narrativeSystem.initNarrativeSystem(narrativeTab);
                 
                 // Écouter les événements du module narratif
                 setupNarrativeEvents(narrativeSystem);

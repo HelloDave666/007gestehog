@@ -6,6 +6,7 @@
 const { EventEmitter } = require('events');
 const path = require('path');
 const fs = require('fs');
+const resourceManager = require('../utils/resourceManager');
 
 // Émetteur d'événements pour la communication avec d'autres modules
 const narrativeEvents = new EventEmitter();
@@ -52,20 +53,15 @@ const dialogueSystem = {
         characterContainer.className = 'character-portrait';
         
         this.characterImage = document.createElement('img');
-        // Essayer de charger l'image depuis son emplacement connu
-        this.characterImage.src = './assets/scenarios/placeholder-character.png';
         this.characterImage.alt = 'Personnage';
-        this.characterImage.onerror = () => {
-            console.warn('[Narrative] Image non trouvée, tentative avec chemin alternatif');
-            // Essayer d'autres chemins possibles
-            this.characterImage.src = '../assets/scenarios/placeholder-character.png';
-            
-            this.characterImage.onerror = () => {
-                console.warn('[Narrative] Seconde tentative échouée, dernier essai');
-                this.characterImage.src = path.join(process.cwd(), 'assets', 'scenarios', 'placeholder-character.png');
-                
-                this.characterImage.onerror = () => {
-                    console.error('[Narrative] Impossible de charger l\'image');
+        
+        // Utiliser le gestionnaire de ressources pour charger l'image par défaut
+        resourceManager.loadImage('assets/scenarios/placeholder-character.png')
+            .then(dataUrl => {
+                if (dataUrl) {
+                    this.characterImage.src = dataUrl;
+                } else {
+                    // Fallback visuel en cas d'échec
                     characterContainer.style.backgroundColor = '#3498db';
                     characterContainer.style.display = 'flex';
                     characterContainer.style.justifyContent = 'center';
@@ -77,9 +73,11 @@ const dialogueSystem = {
                     placeholderText.style.color = 'white';
                     placeholderText.style.fontWeight = 'bold';
                     characterContainer.appendChild(placeholderText);
-                };
-            };
-        };
+                    
+                    // Masquer l'image (en la gardant dans le DOM pour référence future)
+                    this.characterImage.style.display = 'none';
+                }
+            });
         
         characterContainer.appendChild(this.characterImage);
         dialogueFrame.appendChild(characterContainer);
@@ -150,16 +148,26 @@ const dialogueSystem = {
         
         // Mettre à jour l'expression du personnage
         if (this.characterImage) {
-            // Tenter de charger l'image correspondant à l'expression si disponible
-            const expressionPath = `./assets/scenarios/${this.currentDialogue.speaker.toLowerCase()}_${this.currentDialogue.expression}.png`;
+            // Construire le chemin de l'image pour cette expression
+            const imagePath = `assets/images/characters/${this.currentDialogue.speaker.toLowerCase()}_${this.currentDialogue.expression}.png`;
             
-            // Vérifier si le fichier existe
-            if (fs.existsSync(path.join(process.cwd(), 'assets', 'scenarios', `${this.currentDialogue.speaker.toLowerCase()}_${this.currentDialogue.expression}.png`))) {
-                this.characterImage.src = expressionPath;
-            } else {
-                // Fallback sur l'image par défaut
-                this.characterImage.src = './assets/scenarios/placeholder-character.png';
-            }
+            // Essayer de charger l'image avec le gestionnaire de ressources
+            resourceManager.loadImage(imagePath)
+                .then(dataUrl => {
+                    if (dataUrl) {
+                        this.characterImage.src = dataUrl;
+                        this.characterImage.style.display = 'block';
+                    } else {
+                        // Si l'image spécifique n'est pas trouvée, essayer l'image par défaut
+                        resourceManager.loadImage('assets/scenarios/placeholder-character.png')
+                            .then(defaultUrl => {
+                                if (defaultUrl) {
+                                    this.characterImage.src = defaultUrl;
+                                    this.characterImage.style.display = 'block';
+                                }
+                            });
+                    }
+                });
         }
         
         // Mettre à jour le nom du personnage
@@ -250,45 +258,32 @@ const lessonSystem = {
     currentStep: 0,
     
     // Charger les leçons depuis un fichier JSON
-    loadLessons(filePath) {
+    async loadLessons(scenarioPath = 'assets/scenarios/intro.json') {
         try {
-            const lessonsData = fs.readFileSync(filePath, 'utf8');
-            this.lessons = JSON.parse(lessonsData);
-            console.log(`[Narrative] ${this.lessons.length} leçons chargées`);
-            narrativeEvents.emit('lessonsLoaded', this.lessons);
-            return true;
+            // Utiliser le gestionnaire de ressources pour charger le scénario
+            const scenario = await resourceManager.loadScenario(scenarioPath);
+            
+            if (scenario) {
+                if (Array.isArray(scenario)) {
+                    // Si c'est un tableau de leçons
+                    this.lessons = scenario;
+                } else {
+                    // Si c'est un seul scénario, le convertir en format leçon
+                    this.lessons = [this.convertScenarioToLesson(scenario)];
+                }
+                
+                console.log(`[Narrative] ${this.lessons.length} leçons chargées`);
+                narrativeEvents.emit('lessonsLoaded', this.lessons);
+                return true;
+            } else {
+                // Fallback aux leçons par défaut
+                this.createDefaultLessons();
+                return false;
+            }
         } catch (error) {
             console.error('[Narrative] Erreur lors du chargement des leçons:', error);
-            
-            // Réutiliser les scenarios existants si possible
-            this.loadFromScenarios();
+            this.createDefaultLessons();
             return false;
-        }
-    },
-    
-    // Charger les leçons à partir des scenarios existants
-    loadFromScenarios() {
-        try {
-            const scenariosPath = path.join(process.cwd(), 'assets', 'scenarios');
-            
-            // Vérifier si le fichier intro.json existe
-            const introPath = path.join(scenariosPath, 'intro.json');
-            if (fs.existsSync(introPath)) {
-                const introData = fs.readFileSync(introPath, 'utf8');
-                const introScenario = JSON.parse(introData);
-                
-                // Adapter le format scenario au format leçon
-                this.lessons = [this.convertScenarioToLesson(introScenario)];
-                console.log(`[Narrative] Scenario converti en leçon: ${this.lessons[0].title}`);
-                narrativeEvents.emit('lessonsLoaded', this.lessons);
-                return;
-            }
-            
-            // Si intro.json n'existe pas, créer des leçons par défaut
-            this.createDefaultLessons();
-        } catch (error) {
-            console.error('[Narrative] Erreur lors de la conversion des scenarios:', error);
-            this.createDefaultLessons();
         }
     },
     
@@ -309,7 +304,7 @@ const lessonSystem = {
                         type: 'dialogue',
                         speaker: step.speaker || 'Guide',
                         text: step.content || step.text || '',
-                        expression: 'neutral'
+                        expression: step.expression || 'neutral'
                     });
                 } else if (step.type === 'exercise' || step.type === 'action') {
                     lesson.steps.push({
@@ -493,13 +488,28 @@ const lessonSystem = {
  * Initialise le système narratif
  * @param {HTMLElement} container - Conteneur principal pour l'interface
  */
-function initNarrativeSystem(container) {
+async function initNarrativeSystem(container) {
     if (!container) {
         console.error('[Narrative] Conteneur non spécifié pour l\'interface narrative');
         return false;
     }
     
     console.log('[Narrative] Initialisation du système narratif');
+    
+    // Initialiser le gestionnaire de ressources
+    resourceManager.init();
+    
+    // Précharger les ressources essentielles
+    await resourceManager.preloadResources({
+        images: [
+            'assets/scenarios/placeholder-character.png',
+            'assets/images/characters/guide_neutral.png',
+            'assets/images/characters/guide_happy.png'
+        ],
+        scenarios: [
+            'assets/scenarios/intro.json'
+        ]
+    });
     
     // Créer le conteneur pour le système de dialogue
     const narrativeContainer = document.createElement('div');
@@ -532,9 +542,8 @@ function initNarrativeSystem(container) {
     // Initialiser le système de dialogue
     dialogueSystem.setup(dialogueContainerElement);
     
-    // Charger les leçons (fallback sur les scénarios existants si aucun fichier n'est trouvé)
-    const lessonsFilePath = path.join(process.cwd(), 'assets', 'scenarios', 'intro.json');
-    lessonSystem.loadLessons(lessonsFilePath);
+    // Charger les leçons
+    await lessonSystem.loadLessons();
     
     // Remplir le sélecteur de leçons
     populateLessonSelector();
@@ -582,7 +591,9 @@ narrativeEvents.on('lessonsLoaded', () => {
     populateLessonSelector();
 });
 
-// Fonction de test pour le système de dialogue
+/**
+ * Fonction de test pour le système de dialogue
+ */
 function testDialogue() {
     dialogueSystem.addDialogue('Guide', 'Bienvenue dans Heart of Glass !');
     dialogueSystem.addDialogue('Guide', 'Je vais vous apprendre à utiliser les capteurs pour contrôler le son.');

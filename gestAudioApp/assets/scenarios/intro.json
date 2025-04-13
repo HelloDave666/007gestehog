@@ -1,34 +1,52 @@
 {
-    "id": "intro",
-    "title": "Introduction à Heart of Glass",
-    "steps": [
-      {
-        "type": "text",
-        "content": "Bienvenue dans Heart of Glass, une expérience interactive entre son et mouvement.",
-        "image": "placeholder-character.png"
-      },
-      {
-        "type": "dialogue",
-        "speaker": "Guide",
-        "content": "Pour commencer, prenez les capteurs dans vos mains.",
-        "image": "placeholder-character.png"
-      },
-      {
-        "type": "dialogue",
-        "speaker": "Guide",
-        "content": "Le capteur gauche contrôle la vitesse et la direction de la lecture.",
-        "image": "placeholder-guide.png"
-      },
-      {
-        "type": "dialogue",
-        "speaker": "Guide",
-        "content": "Le capteur droit contrôle le volume.",
-        "image": "placeholder-guide.png"
-      },
-      {
-        "type": "text",
-        "content": "Vous êtes maintenant prêt à commencer l'expérience !",
-        "image": "placeholder-character.png"
-      }
-    ]
-  }
+  "id": "intro",
+  "title": "Introduction à Heart of Glass",
+  "steps": [
+    {
+      "type": "dialogue",
+      "speaker": "Guide",
+      "text": "Bienvenue dans Heart of Glass ! Je suis votre guide pour cette expérience interactive.",
+      "expression": "neutral"
+    },
+    {
+      "type": "dialogue",
+      "speaker": "Guide",
+      "text": "Dans cette application, vous allez apprendre à contrôler le son avec des mouvements.",
+      "expression": "happy"
+    },
+    {
+      "type": "dialogue",
+      "speaker": "Guide",
+      "text": "Prenez les capteurs dans vos mains et suivez mes instructions.",
+      "expression": "neutral"
+    },
+    {
+      "type": "exercise",
+      "instructions": "Inclinez le capteur gauche vers l'avant pour accélérer la lecture audio.",
+      "audioFile": "sample.mp3"
+    },
+    {
+      "type": "dialogue",
+      "speaker": "Guide",
+      "text": "Excellent ! Maintenant, essayez d'incliner le capteur gauche vers l'arrière.",
+      "expression": "happy"
+    },
+    {
+      "type": "dialogue",
+      "speaker": "Guide",
+      "text": "Cela permet de lire l'audio en sens inverse. Une technique très intéressante !",
+      "expression": "neutral"
+    },
+    {
+      "type": "exercise",
+      "instructions": "Inclinez le capteur droit vers le haut pour augmenter le volume.",
+      "audioFile": "sample.mp3"
+    },
+    {
+      "type": "dialogue",
+      "speaker": "Guide",
+      "text": "Parfait ! Vous maîtrisez maintenant les fondamentaux de Heart of Glass.",
+      "expression": "happy"
+    }
+  ]
+}
