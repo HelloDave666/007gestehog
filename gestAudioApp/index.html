@@ -2,126 +2,153 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Heart Of Glass</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="assets/css/narrative.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Heart of Glass</title>
+    <!-- Styles CSS - Minimal pour le débogage -->
+    <link rel="stylesheet" href="assets/css/main.css">
+    <!-- Commentez temporairement ces styles pour le débogage -->
+    <!-- <link rel="stylesheet" href="assets/css/narrative.css"> -->
+    <!-- <link rel="stylesheet" href="assets/css/loading.css"> -->
+    
+    <style>
+        /* Styles minimes en ligne pour le débogage */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #1a1a2e;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 1s ease-out;
+        }
+        
+        .loading-screen.fade-out {
+            opacity: 0;
+        }
+        
+        .debug-info {
+            position: fixed;
+            top: 50px;
+            right: 10px;
+            background-color: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 10001;
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Heart Of Glass</h1>
-        
-        <!-- Système d'onglets -->
-        <div class="tabs">
-            <button class="tab-button active" data-tab="mainTab">Heart Of Glass : Rita's adventure</button>
-            <button class="tab-button" data-tab="bluetoothTab">Blue Tools</button>
-            <button class="tab-button" data-tab="knowledgeTab">Knowledge Of Action</button>
-            <button class="tab-button" data-tab="soundTab">Sound Control to Major Tom</button>
-        </div>
-        
-        <!-- Contenu des onglets -->
-        
-        <!-- Onglet principal - Heart Of Glass -->
-        <div id="mainTab" class="tab-content active">
-            <!-- Le système narratif sera injecté ici par narrativeSystem.js -->
-        </div>
-        
-        <!-- Onglet Bluetooth - Blue Tools -->
-        <div id="bluetoothTab" class="tab-content">
-            <div class="bluetooth-section">
-                <button id="scanButton">Rechercher les capteurs</button>
-                <div id="deviceList" class="device-list">
-                    <!-- Les informations sur les capteurs seront ajoutées ici par JavaScript -->
-                </div>
-            </div>
-        </div>
-        
-        <!-- Onglet Knowledge - Knowledge Of Action -->
-        <div id="knowledgeTab" class="tab-content">
-            <div class="knowledge-content">
-                <!-- Contenu futur à développer -->
-                <h2>Espace de connaissances</h2>
-                <p>Cette section est réservée pour le développement futur d'un espace de documentation et d'apprentissage.</p>
-            </div>
-        </div>
-        
-        <!-- Onglet Audio - Sound Control to Major Tom -->
-        <div id="soundTab" class="tab-content">
-            <div class="audio-section">
-                <div class="file-input-container">
-                    <label for="audioFile">Sélectionner un fichier audio :</label>
-                    <input type="file" id="audioFile" accept="audio/*">
-                </div>
-                
-                <div id="audioControls">
-                    <div class="controls-container">
-                        <button id="playPauseButton" class="play-button">
-                            <span class="play-icon"><i class="fas fa-play"></i></span>
-                            <span class="pause-icon" style="display: none;"><i class="fas fa-pause"></i></span>
-                        </button>
-                        
-                        <button id="recordButton" class="record-button" disabled>
-                            <i class="fas fa-microphone"></i> Enregistrer
-                        </button>
-                        <div id="recordingStatus" class="recording-status" style="display: none;">00:00</div>
-                    </div>
-                    
-                    <div id="timelineContainer">
-                        <div id="timelineBackground"></div>
-                        <div id="timelineProgress"></div>
-                        <div id="timelineHandle"></div>
-                    </div>
-                    
-                    <div class="info-container">
-                        <p id="positionDisplay" class="display-text">00:00 / 00:00</p>
-                        <p id="speedDisplay" class="display-text">Vitesse: 1.00x (avant)</p>
-                        <p id="volumeDisplay" class="display-text">Volume: 50%</p>
-                    </div>
-                    
-                    <div class="loop-container">
-                        <input type="checkbox" id="loopCheckbox" checked>
-                        <label for="loopCheckbox">Lecture en boucle</label>
-                    </div>
-                    
-                    <p id="audioStatus" class="status-text">État: En attente</p>
-                    
-                    <div class="sensitivity-control">
-                        <h3>Sensibilité des capteurs</h3>
-                        <div class="sensitivity-slider-container">
-                            <input type="range" id="sensitivitySlider" min="0.1" max="3.0" step="0.1" value="1.0">
-                            <span id="sensitivityValue" class="sensitivity-value">1.0</span>
-                        </div>
-                    </div>
-                    
-                    <div class="advanced-settings">
-                        <h3>Paramètres avancés</h3>
-                        <div class="setting-item">
-                            <label for="grainSizeInput">Taille de grain (ms):</label>
-                            <input type="number" id="grainSizeInput" min="50" max="1000" step="10" value="350">
-                        </div>
-                        <div class="setting-item">
-                            <label for="overlapInput">Chevauchement (%):</label>
-                            <input type="number" id="overlapInput" min="0" max="99" step="1" value="92">
-                        </div>
-                        <div class="setting-item">
-                            <label for="windowTypeSelect">Type de fenêtre:</label>
-                            <select id="windowTypeSelect">
-                                <option value="hann">Hann</option>
-                                <option value="hamming">Hamming</option>
-                                <option value="rectangle">Rectangle</option>
-                                <option value="triangle">Triangle</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <!-- La section des paramètres de capteurs sera ajoutée ici par JavaScript -->
-                </div>
-            </div>
-        </div>
+    <!-- Bouton plein écran -->
+    <div id="fullscreen-btn" style="position: fixed; top: 10px; right: 10px; z-index: 10001; padding: 5px 10px; background-color: #3498db; color: white; cursor: pointer; border-radius: 4px;">
+        Plein écran
     </div>
     
-    <!-- Note: Le système de dialogue pour Heart Of Glass est maintenant géré par narrativeSystem.js -->
+    <!-- Info de débogage -->
+    <div class="debug-info">
+        Heart of Glass - Mode Débogage <br>
+        <span id="app-status">Initialisation...</span>
+    </div>
     
+    <div class="app-container">
+        <header class="app-header">
+            <h1>Heart of Glass</h1>
+            <nav class="tab-navigation">
+                <button class="tab-button active" data-tab="mainTab">Accueil</button>
+                <button class="tab-button" data-tab="soundTab">Audio</button>
+                <button class="tab-button" data-tab="bluetoothTab">Bluetooth</button>
+            </nav>
+        </header>
+        
+        <main class="app-content">
+            <div id="mainTab" class="tab-content active">
+                <!-- Contenu principal / narratif -->
+                <div id="debug-main" style="margin: 20px; padding: 20px; background-color: #f0f0f0; border-radius: 5px;">
+                    <h2>Accueil - Mode Débogage</h2>
+                    <p>Version d'affichage simplifiée pour débogage. Cet écran est affiché pour tester le fonctionnement de base.</p>
+                </div>
+            </div>
+            <div id="soundTab" class="tab-content">
+                <!-- Contrôles audio -->
+                <h2>Contrôle Audio</h2>
+                <div class="audio-controls">
+                    <div class="file-input-container">
+                        <label for="audioFileInput">Sélectionner un fichier audio</label>
+                        <input type="file" id="audioFileInput" accept="audio/*" />
+                    </div>
+                </div>
+                <div id="audioVisualization" class="visualization-container"></div>
+            </div>
+            <div id="bluetoothTab" class="tab-content">
+                <!-- Contrôles Bluetooth -->
+                <h2>Connexion Bluetooth</h2>
+                <div class="bluetooth-controls">
+                    <button id="scanButton">Rechercher des capteurs</button>
+                    <div id="deviceList"></div>
+                </div>
+                <div id="sensorVisualization" class="visualization-container"></div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Script principal -->
     <script src="src/renderer/renderer.js"></script>
+    
+    <!-- Script pour le bouton plein écran -->
+    <script>
+        // Activer le plein écran manuellement
+        document.getElementById('fullscreen-btn').addEventListener('click', function() {
+            try {
+                const electron = require('electron');
+                const remote = electron.remote;
+                if (remote && remote.getCurrentWindow) {
+                    const win = remote.getCurrentWindow();
+                    win.setFullScreen(!win.isFullScreen());
+                    this.textContent = win.isFullScreen() ? 'Quitter plein écran' : 'Plein écran';
+                } else {
+                    console.error('Remote module not available. Using fallback...');
+                    // Fallback avec l'API HTML5 standard
+                    if (!document.fullscreenElement) {
+                        document.documentElement.requestFullscreen().catch(err => {
+                            console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+                        });
+                        this.textContent = 'Quitter plein écran';
+                    } else {
+                        if (document.exitFullscreen) {
+                            document.exitFullscreen();
+                            this.textContent = 'Plein écran';
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur lors du changement de mode plein écran:', error);
+                alert('Erreur lors du changement de mode plein écran. Voir la console pour plus de détails.');
+            }
+        });
+        
+        // Mettre à jour l'état de l'application
+        function updateAppStatus(status) {
+            const statusElement = document.getElementById('app-status');
+            if (statusElement) {
+                statusElement.textContent = status;
+            }
+        }
+        
+        // Écouter les changements d'état globaux
+        window.addEventListener('app-state-change', function(e) {
+            updateAppStatus(e.detail.status);
+        });
+        
+        // Initialiser le statut
+        setTimeout(() => {
+            updateAppStatus('Application en cours de chargement...');
+        }, 1000);
+    </script>
 </body>
 </html>

@@ -170,7 +170,14 @@ function setupTabNavigation() {
         const selectedTab = document.querySelector(`[data-tab="${tabId}"]`);
         if (selectedTab) {
             selectedTab.classList.add('active');
-            document.getElementById(tabId).classList.add('active');
+            const contentElement = document.getElementById(tabId);
+            if (contentElement) {
+                contentElement.classList.add('active');
+            } else {
+                console.error(`[App] Élément de contenu non trouvé pour l'onglet: ${tabId}`);
+            }
+        } else {
+            console.error(`[App] Bouton d'onglet non trouvé pour: ${tabId}`);
         }
         
         // Déclencher un événement de changement d'onglet
@@ -183,6 +190,7 @@ function setupTabNavigation() {
     tabButtons.forEach(button => {
         button.addEventListener('click', () => {
             const tabId = button.getAttribute('data-tab');
+            console.log(`[App] Clic sur l'onglet: ${tabId}`);
             activateTab(tabId);
         });
     });
@@ -246,11 +254,12 @@ function safeResumeAudioContext() {
 
 /**
  * Charge le module Bluetooth avec vérification de sécurité
+ * @returns {Promise<boolean>} Succès du chargement
  */
-function loadBluetoothModule() {
+async function loadBluetoothModule() {
     try {
         // Vérifier si le module est déjà chargé
-        if (window.bluetoothModuleLoaded) return;
+        if (window.bluetoothModuleLoaded) return true;
         
         // Détection du chemin de base de l'application
         const appRoot = path.resolve(process.cwd());
@@ -279,6 +288,7 @@ function loadBluetoothModule() {
             window.appState.bluetoothReady = true;
             
             console.log('[App] Module Bluetooth chargé avec succès');
+            return true;
         } else {
             throw new Error(`Le fichier ${modulePath} n'existe pas`);
         }
@@ -288,6 +298,7 @@ function loadBluetoothModule() {
         if (window.addLogMessage) {
             window.addLogMessage('ERROR', `Erreur Bluetooth: ${error.message}`);
         }
+        return false;
     }
 }
 
@@ -357,11 +368,12 @@ function setupBluetoothEvents(bluetooth) {
 
 /**
  * Charge le module Audio avec vérification de sécurité
+ * @returns {Promise<boolean>} Succès du chargement
  */
-function loadAudioModule() {
+async function loadAudioModule() {
     try {
         // Vérifier si le module est déjà chargé
-        if (window.audioModuleLoaded) return;
+        if (window.audioModuleLoaded) return true;
         
         // Détection du chemin de base de l'application
         const appRoot = path.resolve(process.cwd());
@@ -452,6 +464,8 @@ function loadAudioModule() {
                     window.addLogMessage('INFO', 'Audio connecté aux capteurs Bluetooth');
                 }
             }
+            
+            return true;
         } else {
             throw new Error(`Le fichier ${modulePath} n'existe pas`);
         }
@@ -461,6 +475,7 @@ function loadAudioModule() {
         if (window.addLogMessage) {
             window.addLogMessage('ERROR', `Erreur Audio: ${error.message}`);
         }
+        return false;
     }
 }
 
@@ -493,11 +508,12 @@ function setupAudioEvents(audioSystem) {
 
 /**
  * Charge le module Narratif
+ * @returns {Promise<boolean>} Succès du chargement
  */
 async function loadNarrativeModule() {
     try {
         // Vérifier si le module est déjà chargé
-        if (window.narrativeModuleLoaded) return;
+        if (window.narrativeModuleLoaded) return true;
         
         // Détection du chemin de base de l'application
         const appRoot = path.resolve(process.cwd());
@@ -508,22 +524,6 @@ async function loadNarrativeModule() {
         if (!fs.existsSync(utilsDir)) {
             console.log('[Debug] Création du répertoire utils...');
             fs.mkdirSync(utilsDir, { recursive: true });
-        }
-        
-        // Charger d'abord le gestionnaire de ressources
-        const resourceManagerPath = path.join(appRoot, 'src', 'renderer', 'utils', 'resourceManager.js');
-        
-        // Vérifier si le fichier existe
-        let resourceManager;
-        if (!fs.existsSync(resourceManagerPath)) {
-            console.warn('[Debug] Gestionnaire de ressources non trouvé, création du fichier...');
-            
-            // Le code du gestionnaire de ressources serait importé ici dans un environnement réel
-            // Pour cette démo, nous supposons que le fichier est déjà créé
-            throw new Error('Le gestionnaire de ressources doit être créé manuellement');
-        } else {
-            console.log('[Debug] Chargement du gestionnaire de ressources...');
-            resourceManager = require(resourceManagerPath);
         }
         
         // Chemin absolu vers le module Narratif
@@ -548,8 +548,8 @@ async function loadNarrativeModule() {
                 // Écouter les événements du module narratif
                 setupNarrativeEvents(narrativeSystem);
                 
-                // Test rapide pour vérifier le fonctionnement
-                setTimeout(() => narrativeSystem.testDialogue(), 1000);
+                // Test rapide pour vérifier le fonctionnement - Commenté pour la prod
+                // setTimeout(() => narrativeSystem.testDialogue(), 1000);
             } else {
                 console.error('[App] Onglet narratif non trouvé dans le DOM');
             }
@@ -559,6 +559,7 @@ async function loadNarrativeModule() {
             window.appState.narrativeReady = true;
             
             console.log('[App] Module Narratif chargé avec succès');
+            return true;
         } else {
             throw new Error(`Le fichier ${modulePath} n'existe pas`);
         }
@@ -568,6 +569,7 @@ async function loadNarrativeModule() {
         if (window.addLogMessage) {
             window.addLogMessage('ERROR', `Erreur Narratif: ${error.message}`);
         }
+        return false;
     }
 }
 
@@ -628,38 +630,128 @@ function setupNarrativeEvents(narrativeSystem) {
     });
 }
 
-// Ajout d'un gestionnaire global pour activer l'audio
-document.addEventListener('click', function() {
+// Ajout d'un gestionnaire global pour activer l'audio et gérer les touches
+document.addEventListener('keydown', function(event) {
+    // Activer l'audio sur n'importe quelle touche
     safeResumeAudioContext();
+    
+    // Gérer la touche ESC pour quitter l'application en plein écran
+    if (event.key === 'Escape') {
+        // Si on est pas déjà en train de quitter
+        if (!window.isQuitting) {
+            window.isQuitting = true;
+            
+            // Afficher un petit message de confirmation
+            const confirmExit = confirm('Voulez-vous quitter Heart of Glass ?');
+            
+            if (confirmExit) {
+                ipcRenderer.send('quit-app');
+            } else {
+                window.isQuitting = false;
+            }
+        }
+    }
 });
 
-// Initialisation de l'application
+// Initialisation de l'application - version simplifiée pour débogage
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('[App] Initialisation de l\'application');
+    console.log('[App] Initialisation de l\'application démarrée');
     
-    // Configurer le système de log
-    setupLogging();
-    
-    // Créer le log visuel après un petit délai
-    setTimeout(createVisualLog, 500);
-    
-    // Configurer la navigation par onglets
-    setupTabNavigation();
-    
-    // Configurer le chargement différé des modules
-    setupDeferredModuleLoading();
-    
-    // Initialiser l'état de l'application
-    window.appState = {
-        audioReady: false,
-        bluetoothReady: false,
-        narrativeReady: false
-    };
-    
-    // Charger automatiquement le module narratif au démarrage
-    setTimeout(() => {
-        loadNarrativeModule();
-    }, 800);
-    
-    console.log('[App] Application initialisée avec succès');
+    try {
+        // Configurer le système de log d'abord
+        setupLogging();
+        console.log('[App] Système de log configuré');
+        
+        // Créer l'écran de chargement simplifié - UTILISER UN CHEMIN ABSOLU
+        try {
+            // Chemin absolu au module loadingManager
+            const loadingManagerPath = path.join(__dirname, 'utils', 'loadingManager');
+            console.log('[Debug] Tentative de chargement du gestionnaire avec chemin absolu:', loadingManagerPath);
+            const loadingManager = require(loadingManagerPath);
+            loadingManager.createLoadingScreen(document.body);
+            console.log('[App] Écran de chargement créé');
+            
+            // Créer le log visuel après un petit délai (caché derrière l'écran de chargement)
+            setTimeout(createVisualLog, 500);
+            
+            // Configurer la navigation par onglets
+            setupTabNavigation();
+            console.log('[App] Navigation par onglets configurée');
+            
+            // Configurer le chargement différé des modules
+            setupDeferredModuleLoading();
+            
+            // Initialiser l'état de l'application
+            window.appState = {
+                audioReady: false,
+                bluetoothReady: false,
+                narrativeReady: false
+            };
+            
+            // Charger les modules de manière séquentielle avec des délais
+            setTimeout(() => {
+                console.log('[App] Début du chargement du module narratif');
+                loadNarrativeModule()
+                    .then(() => {
+                        console.log('[App] Module narratif chargé');
+                        loadingManager.updateLoadingProgress('système narratif');
+                        
+                        setTimeout(() => {
+                            console.log('[App] Début du chargement du module audio');
+                            loadAudioModule()
+                                .then(() => {
+                                    console.log('[App] Module audio chargé');
+                                    loadingManager.updateLoadingProgress('système audio');
+                                    
+                                    setTimeout(() => {
+                                        console.log('[App] Début du chargement du module Bluetooth');
+                                        loadBluetoothModule()
+                                            .then(() => {
+                                                console.log('[App] Module Bluetooth chargé');
+                                                loadingManager.updateLoadingProgress('système Bluetooth');
+                                            })
+                                            .catch(err => {
+                                                console.error('[App] Erreur lors du chargement du module Bluetooth:', err);
+                                            });
+                                    }, 500);
+                                })
+                                .catch(err => {
+                                    console.error('[App] Erreur lors du chargement du module audio:', err);
+                                });
+                        }, 500);
+                    })
+                    .catch(err => {
+                        console.error('[App] Erreur lors du chargement du module narratif:', err);
+                    });
+            }, 1000);
+            
+            // Écouter les événements de chargement
+            loadingManager.loadingEvents.on('loadingComplete', () => {
+                console.log('[App] Chargement de tous les modules terminé');
+                setTimeout(() => {
+                    loadingManager.hideLoadingScreen();
+                }, 1000);
+            });
+            
+            loadingManager.loadingEvents.on('screenRemoved', () => {
+                console.log('[App] Application complètement initialisée');
+            });
+        } catch (loadingError) {
+            console.error('[App] Erreur avec le gestionnaire de chargement:', loadingError);
+            
+            // Continuer sans écran de chargement
+            createVisualLog();
+            setupTabNavigation();
+            setupDeferredModuleLoading();
+            
+            // Charger les modules directement
+            setTimeout(() => {
+                loadNarrativeModule();
+                setTimeout(loadAudioModule, 500);
+                setTimeout(loadBluetoothModule, 1000);
+            }, 500);
+        }
+    } catch (error) {
+        console.error('[App] Erreur lors de l\'initialisation:', error);
+    }
 });

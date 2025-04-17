@@ -1,85 +1,67 @@
-const { app, BrowserWindow } = require('electron');
+// main.js - version modifiée
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
-// Déterminer si nous sommes en mode développement
-const isDev = !app.isPackaged;
+// Désactiver l'accélération GPU pour éviter les crashes
+app.disableHardwareAcceleration();
 
-// Optimisations pour éviter les plantages en mode développement
-app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096');
-app.commandLine.appendSwitch('disable-features', 'OutOfBlinkCors');
-app.commandLine.appendSwitch('remote-debugging-port', '9222');
-app.commandLine.appendSwitch('disable-http-cache');
-
-// Pour désactiver les avertissements de sécurité
-process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = true;
-
-// Garder une référence globale pour éviter que la fenêtre soit fermée automatiquement
+// Garder une référence globale de l'objet fenêtre
 let mainWindow;
 
-// Configuration du chemin pour les modules natifs (noble) sur Windows
-if (process.platform === 'win32') {
-  if (!isDev) {
-    process.env.PATH = process.env.PATH + ';' + path.join(process.resourcesPath, 'build', 'Release');
-  }
-}
-
 function createWindow() {
-  // Créer la fenêtre du navigateur
+  // Créer la fenêtre du navigateur avec des options plus sûres
   mainWindow = new BrowserWindow({
-    width: 1000,
-    height: 700,
+    width: 1280,
+    height: 720,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
-      enableRemoteModule: true,
-      webSecurity: false,
-      backgroundThrottling: false
+      enableRemoteModule: true
     },
-    icon: path.join(__dirname, '../../build/icon.png'),
-    title: "Heart Of Glass",
-    backgroundColor: '#f5f5f5'
+    // Toujours montrer la fenêtre pour éviter les problèmes d'affichage
+    show: true,
+    // Garde le frame pour le moment pour faciliter le débogage
+    frame: true
   });
 
   // Charger le fichier index.html de l'application
-  mainWindow.loadFile(path.join(__dirname, '../../index.html'));
+  mainWindow.loadFile('index.html');
+  
+  // Pour le débogage, ouvrir les DevTools
+  mainWindow.webContents.openDevTools();
 
-  // Désactiver les DevTools pour éviter les plantages
-  if (isDev && !process.argv.includes('--disable-dev-tools')) {
-    // Décommenter cette ligne si vous voulez utiliser les DevTools
-    // mainWindow.webContents.openDevTools({ mode: 'detach' });
-    console.log('Mode développement - DevTools désactivés pour éviter les plantages');
-  }
+  // Limiter le mode plein écran à une fonction que l'utilisateur peut activer manuellement
+  mainWindow.on('ready-to-show', () => {
+    console.log('Fenêtre prête à être affichée');
+  });
 
-  // Gérer la fermeture de la fenêtre
-  mainWindow.on('closed', function() {
+  mainWindow.on('closed', function () {
     mainWindow = null;
   });
 }
 
-// Cette méthode sera appelée quand Electron a fini de s'initialiser
+// Cette méthode sera appelée quand Electron aura fini de s'initialiser
 app.whenReady().then(() => {
+  console.log('Application prête, création de la fenêtre...');
   createWindow();
-  
-  // Afficher les informations système pour le débogage en mode dev
-  if (isDev) {
-    console.log('Electron Version:', process.versions.electron);
-    console.log('Chrome Version:', process.versions.chrome);
-    console.log('Node Version:', process.versions.node);
-    console.log('Platform:', process.platform);
-    console.log('Architecture:', process.arch);
-  }
 });
 
-// Quitter quand toutes les fenêtres sont fermées, sauf sur macOS
-app.on('window-all-closed', function() {
+// Quitter lorsque toutes les fenêtres sont fermées
+app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
 });
 
-app.on('activate', function() {
+app.on('activate', function () {
   if (mainWindow === null) createWindow();
 });
 
-// Gestion des éventuelles exceptions non capturées
-process.on('uncaughtException', (error) => {
-  console.error('Erreur non capturée :', error);
+// Gérer la commande de fermeture de l'application
+ipcMain.on('quit-app', () => {
+  app.quit();
+});
+
+// Gérer les journaux de l'interface utilisateur
+ipcMain.on('log', (event, data) => {
+  console.log(`[Renderer/${data.level}] ${data.message}`);
 });

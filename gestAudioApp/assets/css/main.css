@@ -1,0 +1,213 @@
+/* assets/css/main.css */
+
+/* Reset et styles de base */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    font-family: 'Arial', sans-serif;
+    background-color: #f5f5f7;
+    color: #333;
+  }
+  
+  /* Structure principale de l'application */
+  .app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+  }
+  
+  .app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background-color: #2c3e50;
+    color: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  .app-header h1 {
+    font-size: 1.5rem;
+    font-weight: 500;
+  }
+  
+  .app-content {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+  }
+  
+  /* Navigation par onglets */
+  .tab-navigation {
+    display: flex;
+    gap: 10px;
+  }
+  
+  .tab-button {
+    padding: 8px 16px;
+    border: none;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .tab-button:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+  
+  .tab-button.active {
+    background-color: #3498db;
+  }
+  
+  .tab-content {
+    display: none;
+    padding: 20px;
+    height: 100%;
+  }
+  
+  .tab-content.active {
+    display: block;
+  }
+  
+  /* Contrôles audio */
+  .audio-controls {
+    margin-bottom: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+  
+  .file-input-container {
+    position: relative;
+  }
+  
+  .file-input-container label {
+    display: inline-block;
+    padding: 10px 15px;
+    background-color: #3498db;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .file-input-container label:hover {
+    background-color: #2980b9;
+  }
+  
+  .file-input-container input[type="file"] {
+    position: absolute;
+    width: 0.1px;
+    height: 0.1px;
+    opacity: 0;
+    overflow: hidden;
+    z-index: -1;
+  }
+  
+  /* Conteneurs de visualisation */
+  .visualization-container {
+    width: 100%;
+    height: 300px;
+    background-color: #f0f0f0;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-top: 20px;
+  }
+  
+  /* Contrôles Bluetooth */
+  .bluetooth-controls {
+    margin-bottom: 20px;
+  }
+  
+  .bluetooth-controls button {
+    padding: 10px 15px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .bluetooth-controls button:hover {
+    background-color: #2980b9;
+  }
+  
+  #deviceList {
+    margin-top: 15px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  
+  /* Mode plein écran */
+  .fullscreen-app {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+  
+  /* Styles pour les éléments de contrôle (boutons, sliders) */
+  button, select, input[type="range"] {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 4px;
+    background-color: #3498db;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  button:hover, select:hover {
+    background-color: #2980b9;
+  }
+  
+  button:disabled {
+    background-color: #95a5a6;
+    cursor: not-allowed;
+  }
+  
+  /* Styles pour les états d'erreur et de succès */
+  .success {
+    color: #27ae60;
+  }
+  
+  .error {
+    color: #e74c3c;
+  }
+  
+  .warning {
+    color: #f39c12;
+  }
+  
+  /* Styles pour les animations et transitions globales */
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  .fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+  
+  /* Media queries pour la responsivité */
+  @media (max-width: 768px) {
+    .app-header {
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .tab-navigation {
+      width: 100%;
+      justify-content: space-around;
+    }
+  }
