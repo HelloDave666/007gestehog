@@ -37,11 +37,18 @@ function createWindow() {
     },
     icon: path.join(__dirname, '../../build/icon.png'),
     title: "Heart Of Glass",
-    backgroundColor: '#f5f5f5'
+    backgroundColor: '#f5f5f5',
+    show: false // Ne pas afficher immédiatement
   });
 
   // Charger le fichier index.html de l'application
   mainWindow.loadFile(path.join(__dirname, '../../index.html'));
+  
+  // Afficher la fenêtre maximisée quand elle est prête
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    mainWindow.maximize(); // Maximiser au lieu de plein écran
+  });
 
   // Désactiver les DevTools pour éviter les plantages
   if (isDev && !process.argv.includes('--disable-dev-tools')) {

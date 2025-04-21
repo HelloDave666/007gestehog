@@ -1,4 +1,3 @@
-// src/renderer/renderer.js
 const { ipcRenderer } = require('electron');
 const path = require('path');
 const fs = require('fs');
