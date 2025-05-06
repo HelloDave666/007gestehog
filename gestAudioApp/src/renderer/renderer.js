@@ -384,58 +384,6 @@ function loadAudioModule() {
             // Initialiser le module
             audioSystem.initAudioSystem();
             
-            // Ajouter un bouton de débogage simplifié
-            const soundTab = document.getElementById('soundTab');
-            if (soundTab) {
-                const debugContainer = document.createElement('div');
-                debugContainer.style.marginTop = '20px';
-                debugContainer.style.padding = '10px';
-                debugContainer.style.backgroundColor = 'rgba(0,0,0,0.1)';
-                debugContainer.style.borderRadius = '5px';
-                
-                const debugTitle = document.createElement('h3');
-                debugTitle.textContent = 'Débogage Audio';
-                debugContainer.appendChild(debugTitle);
-                
-                // Boutons de test
-                const testButtonsContainer = document.createElement('div');
-                testButtonsContainer.style.marginTop = '10px';
-                
-                const testPlayButton = document.createElement('button');
-                testPlayButton.textContent = 'Test Lecture';
-                testPlayButton.style.marginRight = '10px';
-                testPlayButton.addEventListener('click', () => {
-                    if (window.audioSystem && typeof window.audioSystem.testPlayback === 'function') {
-                        try {
-                            console.log('[Debug] Test de lecture directe');
-                            window.audioSystem.testPlayback();
-                        } catch (err) {
-                            console.error('[Debug] Erreur de test lecture:', err);
-                        }
-                    }
-                });
-                testButtonsContainer.appendChild(testPlayButton);
-                
-                const activateAudioButton = document.createElement('button');
-                activateAudioButton.textContent = 'Activer Audio';
-                activateAudioButton.style.backgroundColor = '#e67e22';
-                activateAudioButton.style.color = 'white';
-                activateAudioButton.style.border = 'none';
-                activateAudioButton.style.borderRadius = '3px';
-                activateAudioButton.style.padding = '5px 10px';
-                activateAudioButton.style.marginLeft = '10px';
-                activateAudioButton.addEventListener('click', () => {
-                    // Force l'activation du contexte audio
-                    safeResumeAudioContext();
-                    activateAudioButton.textContent = 'Audio Activé';
-                    activateAudioButton.style.backgroundColor = '#27ae60';
-                });
-                testButtonsContainer.appendChild(activateAudioButton);
-                
-                debugContainer.appendChild(testButtonsContainer);
-                soundTab.appendChild(debugContainer);
-            }
-            
             // Marquer le module comme chargé
             window.audioModuleLoaded = true;
             

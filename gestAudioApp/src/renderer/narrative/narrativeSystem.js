@@ -53,16 +53,16 @@ const dialogueSystem = {
         
         this.characterImage = document.createElement('img');
         // Essayer de charger l'image depuis son emplacement connu
-        this.characterImage.src = './assets/scenarios/placeholder-character.png';
+        this.characterImage.src = './assets/images/Rita_guide.png';
         this.characterImage.alt = 'Personnage';
         this.characterImage.onerror = () => {
             console.warn('[Narrative] Image non trouvée, tentative avec chemin alternatif');
             // Essayer d'autres chemins possibles
-            this.characterImage.src = '../assets/scenarios/placeholder-character.png';
+            this.characterImage.src = '../assets/images/Rita_guide.png';
             
             this.characterImage.onerror = () => {
                 console.warn('[Narrative] Seconde tentative échouée, dernier essai');
-                this.characterImage.src = path.join(process.cwd(), 'assets', 'scenarios', 'placeholder-character.png');
+                this.characterImage.src = path.join(process.cwd(), 'assets', 'images', 'Rita_guide.png');
                 
                 this.characterImage.onerror = () => {
                     console.error('[Narrative] Impossible de charger l\'image');
@@ -150,16 +150,19 @@ const dialogueSystem = {
         
         // Mettre à jour l'expression du personnage
         if (this.characterImage) {
-            // Tenter de charger l'image correspondant à l'expression si disponible
-            const expressionPath = `./assets/scenarios/${this.currentDialogue.speaker.toLowerCase()}_${this.currentDialogue.expression}.png`;
+            // Toujours utiliser l'image Rita_guide pour l'instant
+            this.characterImage.src = './assets/images/Rita_guide.png';
             
-            // Vérifier si le fichier existe
-            if (fs.existsSync(path.join(process.cwd(), 'assets', 'scenarios', `${this.currentDialogue.speaker.toLowerCase()}_${this.currentDialogue.expression}.png`))) {
+            // Remarque : Si vous souhaitez plus tard avoir différentes expressions,
+            // vous pourriez utiliser un code comme celui-ci:
+            /*
+            const expressionPath = `./assets/images/${this.currentDialogue.speaker.toLowerCase()}_${this.currentDialogue.expression}.png`;
+            if (fs.existsSync(path.join(process.cwd(), 'assets', 'images', `${this.currentDialogue.speaker.toLowerCase()}_${this.currentDialogue.expression}.png`))) {
                 this.characterImage.src = expressionPath;
             } else {
-                // Fallback sur l'image par défaut
-                this.characterImage.src = './assets/scenarios/placeholder-character.png';
+                this.characterImage.src = './assets/images/Rita_guide.png';
             }
+            */
         }
         
         // Mettre à jour le nom du personnage

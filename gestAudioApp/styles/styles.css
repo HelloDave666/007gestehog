@@ -405,46 +405,14 @@ h1, h2, h3 {
     border: 1px solid #ddd;
 }
 
-/* Amélioration des icônes play/pause */
-.play-icon {
-    width: 0;
-    height: 0;
-    border-style: solid;
-    border-width: 10px 0 10px 15px;
-    border-color: transparent transparent transparent #fff;
-    display: block;
+/* Nouvelles icônes play/pause pour Font Awesome */
+.play-icon-fa, .pause-icon-fa {
     position: absolute;
-    left: 55%;
     top: 50%;
-    transform: translate(-50%, -50%);
-}
-
-.pause-icon {
-    width: 14px;
-    height: 16px;
-    display: block;
-    position: absolute;
     left: 50%;
-    top: 50%;
     transform: translate(-50%, -50%);
-}
-
-.pause-icon:before,
-.pause-icon:after {
-    content: '';
-    width: 4px;
-    height: 16px;
-    background-color: #fff;
-    position: absolute;
-    top: 0;
-}
-
-.pause-icon:before {
-    left: 3px;
-}
-
-.pause-icon:after {
-    right: 3px;
+    color: white;
+    font-size: 20px;
 }
 
 /* Bouton d'enregistrement */

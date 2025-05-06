@@ -1,43 +1,38 @@
-/* styles/intro.css - Version ultra simplifiée */
-#simple-intro {
+/* styles/intro.css - Avec marge blanche, coins arrondis et timing CSS */
+body, html {
+    margin: 0;
+    padding: 0;
+    background-color: #FFFFFF;
+  }
+  
+  #simple-intro {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: #1a1a2e;
+    background-color: #FFFFFF;
     z-index: 9999;
     display: flex;
-    flex-direction: column;
     justify-content: center;
     align-items: center;
+    overflow: hidden;
     animation: fadeOut 0.5s ease-in-out forwards;
-    animation-delay: 3s;
+    animation-delay: 7s; /* Délai de 7 secondes avant disparition */
     pointer-events: none;
-}
-
-.intro-img {
-    width: 280px;
-    height: 280px;
-    object-fit: contain;
-    margin-bottom: 20px;
-}
-
-.intro-title {
-    color: white;
-    font-size: 32px;
-    margin-bottom: 10px;
-}
-
-.intro-subtitle {
-    color: #8a4baf;
-    font-size: 18px;
-}
-
-@keyframes fadeOut {
+  }
+  
+  .intro-img {
+    width: 94%;
+    height: 94%;
+    object-fit: cover;
+    border-radius: 8px; /* Coins arrondis conservés */
+  }
+  
+  @keyframes fadeOut {
     from { opacity: 1; }
     to { 
         opacity: 0; 
         visibility: hidden;
     }
-}
+  }

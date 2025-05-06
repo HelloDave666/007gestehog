@@ -24,10 +24,16 @@ if (process.platform === 'win32') {
 }
 
 function createWindow() {
-  // Créer la fenêtre du navigateur
+  // Définir une taille légèrement plus petite tout en gardant le ratio 16:9
+  const scaleFactor = 0.9; // 90% de la taille originale
+  const width = Math.round(1920 * scaleFactor);
+  const height = Math.round(1080 * scaleFactor);
+  
+  // Créer la fenêtre du navigateur avec la taille réduite
   mainWindow = new BrowserWindow({
-    width: 1000,
-    height: 700,
+    width: width,
+    height: height,
+    useContentSize: true,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -37,17 +43,20 @@ function createWindow() {
     },
     icon: path.join(__dirname, '../../build/icon.png'),
     title: "Heart Of Glass",
-    backgroundColor: '#f5f5f5',
-    show: false // Ne pas afficher immédiatement
+    backgroundColor: '#FFFFFF', // Fond blanc pour les marges
+    show: false,
+    resizable: true
   });
 
   // Charger le fichier index.html de l'application
   mainWindow.loadFile(path.join(__dirname, '../../index.html'));
   
-  // Afficher la fenêtre maximisée quand elle est prête
+  // Afficher la fenêtre quand elle est prête
   mainWindow.once('ready-to-show', () => {
+    // Forcer la taille exacte
+    mainWindow.setContentSize(width, height);
+    mainWindow.center();
     mainWindow.show();
-    mainWindow.maximize(); // Maximiser au lieu de plein écran
   });
 
   // Désactiver les DevTools pour éviter les plantages
