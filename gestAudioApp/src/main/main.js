@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 
 // Déterminer si nous sommes en mode développement
@@ -9,6 +9,9 @@ app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096');
 app.commandLine.appendSwitch('disable-features', 'OutOfBlinkCors');
 app.commandLine.appendSwitch('remote-debugging-port', '9222');
 app.commandLine.appendSwitch('disable-http-cache');
+
+// Ajouter cette ligne pour autoriser la capture audio du système
+app.commandLine.appendSwitch('enable-features', 'WebRTCAudioCapturing');
 
 // Pour désactiver les avertissements de sécurité
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = true;
@@ -39,7 +42,10 @@ function createWindow() {
       contextIsolation: false,
       enableRemoteModule: true,
       webSecurity: false,
-      backgroundThrottling: false
+      backgroundThrottling: false,
+      // Ajouter ces propriétés pour permettre la capture d'écran et audio
+      webviewTag: true,
+      enableWebAudioFeatures: true
     },
     icon: path.join(__dirname, '../../build/icon.png'),
     title: "Heart Of Glass",
@@ -93,6 +99,12 @@ app.on('window-all-closed', function() {
 
 app.on('activate', function() {
   if (mainWindow === null) createWindow();
+});
+
+// Gestionnaire pour la boîte de dialogue d'enregistrement
+ipcMain.handle('save-dialog', async (event, options) => {
+  const result = await dialog.showSaveDialog(mainWindow, options);
+  return result; // Retourne l'objet complet avec canceled et filePath
 });
 
 // Gestion des éventuelles exceptions non capturées

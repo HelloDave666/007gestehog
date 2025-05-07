@@ -24,6 +24,15 @@ let timelineUpdateInterval = null;
 let isAudioInitialized = false;
 let sensitivityFactor = 1.0;
 
+// Référence globale pour l'enregistrement
+let audioSource = null;
+let mainGainNode = null;
+
+// Fonction pour exposer le nœud source audio principal
+window.getAudioSourceNode = function() {
+  return audioSource;
+};
+
 // Paramètres de la synthèse granulaire (alignés avec l'original)
 let grainSize = 0.35;        // 350ms par défaut
 let overlap = 0.92;          // 92% de chevauchement (comme l'original)
@@ -54,6 +63,14 @@ function initAudioSystem() {
         console.error('[Audio] Erreur lors du démarrage du contexte audio:', err);
       });
     }
+    
+    // Créer un nœud de gain principal pour tout le système audio
+    mainGainNode = audioContext.createGain();
+    mainGainNode.gain.value = 1.0;
+    mainGainNode.connect(audioContext.destination);
+    
+    // Conserver une référence pour l'enregistrement
+    audioSource = mainGainNode;
 
     // Initialiser le lecteur de grains avec les paramètres de l'original
     initGrainPlayer(audioContext, {
@@ -62,7 +79,8 @@ function initAudioSystem() {
       windowType: windowType,
       loopPlayback: loopPlayback,
       maxActiveGrains: 8,    // Comme l'original
-      updateRate: 60         // 60Hz comme l'original
+      updateRate: 60,        // 60Hz comme l'original
+      outputNode: mainGainNode // Connecter au nœud de gain principal au lieu de destination
     });
     
     // Initialiser l'enregistreur
@@ -422,8 +440,8 @@ function togglePlayPause() {
   }
 
   const playPauseButton = document.getElementById('playPauseButton');
-  const playIcon = playPauseButton?.querySelector('.play-icon');
-  const pauseIcon = playPauseButton?.querySelector('.pause-icon');
+  const playIcon = playPauseButton?.querySelector('.play-icon-fa');
+  const pauseIcon = playPauseButton?.querySelector('.pause-icon-fa');
 
   if (isPlaybackActive()) {
     // Arrêter la lecture
@@ -462,6 +480,7 @@ function togglePlayPause() {
  */
 function toggleRecording() {
   const recordButton = document.getElementById('recordButton');
+  const recordingStatus = document.getElementById('recordingStatus');
   
   if (isRecordingActive()) {
     // Arrêter l'enregistrement
@@ -471,6 +490,10 @@ function toggleRecording() {
     if (recordButton) {
       recordButton.classList.remove('recording');
       recordButton.innerHTML = '<i class="fas fa-microphone"></i> Enregistrer';
+    }
+    
+    if (recordingStatus) {
+      recordingStatus.style.display = 'none';
     }
     
     updateAudioStatus('Enregistrement terminé');
@@ -486,19 +509,21 @@ function toggleRecording() {
         recordButton.innerHTML = '<i class="fas fa-stop"></i> Arrêter';
       }
       
-      // Créer un élément pour afficher la durée s'il n'existe pas
-      let recordingStatus = document.getElementById('recordingStatus');
+      // Créer ou afficher l'élément pour la durée
       if (!recordingStatus) {
-        recordingStatus = document.createElement('div');
-        recordingStatus.id = 'recordingStatus';
-        recordingStatus.className = 'recording-status';
-        recordingStatus.textContent = '00:00';
+        const newRecordingStatus = document.createElement('div');
+        newRecordingStatus.id = 'recordingStatus';
+        newRecordingStatus.className = 'recording-status';
+        newRecordingStatus.textContent = '00:00';
         
         // Ajouter près du bouton d'enregistrement
         const controlsContainer = recordButton.parentElement;
         if (controlsContainer) {
-          controlsContainer.appendChild(recordingStatus);
+          controlsContainer.appendChild(newRecordingStatus);
         }
+      } else {
+        recordingStatus.textContent = '00:00';
+        recordingStatus.style.display = 'inline-block';
       }
       
       updateAudioStatus('Enregistrement en cours...');
@@ -692,8 +717,8 @@ function updateFromSensors(sensorData) {
         // Mise à jour du bouton play/pause
         const playPauseButton = document.getElementById('playPauseButton');
         if (playPauseButton) {
-          const playIcon = playPauseButton.querySelector('.play-icon');
-          const pauseIcon = playPauseButton.querySelector('.pause-icon');
+          const playIcon = playPauseButton.querySelector('.play-icon-fa');
+          const pauseIcon = playPauseButton.querySelector('.pause-icon-fa');
           
           if (playIcon) playIcon.style.display = 'none';
           if (pauseIcon) pauseIcon.style.display = '';
@@ -738,8 +763,8 @@ function testPlayback() {
     
     // Mettre à jour l'interface
     const playPauseButton = document.getElementById('playPauseButton');
-    const playIcon = playPauseButton?.querySelector('.play-icon');
-    const pauseIcon = playPauseButton?.querySelector('.pause-icon');
+    const playIcon = playPauseButton?.querySelector('.play-icon-fa');
+    const pauseIcon = playPauseButton?.querySelector('.pause-icon-fa');
     
     if (playIcon && pauseIcon) {
       playIcon.style.display = '';
@@ -759,8 +784,8 @@ function testPlayback() {
     
     // Mettre à jour l'interface
     const playPauseButton = document.getElementById('playPauseButton');
-    const playIcon = playPauseButton?.querySelector('.play-icon');
-    const pauseIcon = playPauseButton?.querySelector('.pause-icon');
+    const playIcon = playPauseButton?.querySelector('.play-icon-fa');
+    const pauseIcon = playPauseButton?.querySelector('.pause-icon-fa');
     
     if (playIcon && pauseIcon) {
       playIcon.style.display = 'none';
