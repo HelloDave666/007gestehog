@@ -796,6 +796,24 @@ function testPlayback() {
   }
 }
 
+/**
+ * Vérifie si un buffer audio est actuellement chargé
+ * @returns {boolean} - Vrai si un buffer audio est chargé
+ */
+function isAudioBufferLoaded() {
+  return audioBuffer !== null && audioBuffer !== undefined;
+}
+
+/**
+ * Définit le mode de lecture en boucle
+ * @param {boolean} loop - Activer/désactiver la lecture en boucle
+ */
+function setLoopPlayback(loop) {
+  loopPlayback = loop;
+  updateConfig({ loopPlayback });
+  console.log(`[Audio] Lecture en boucle ${loopPlayback ? 'activée' : 'désactivée'}`);
+}
+
 // Exporter les fonctions et l'émetteur d'événements du module
 module.exports = {
   initAudioSystem,
@@ -805,5 +823,7 @@ module.exports = {
   isPlaybackActive,
   testPlayback,
   toggleRecording,
+  isAudioBufferLoaded,
+  setLoopPlayback,
   audioEvents
 };

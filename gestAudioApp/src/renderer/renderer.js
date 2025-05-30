@@ -206,6 +206,10 @@ function setupDeferredModuleLoading() {
             case 'soundTab':
                 console.log('[App] Chargement du module Audio');
                 loadAudioModule();
+                // Supprimer les contrôles audio de l'onglet Sound
+                setTimeout(() => {
+                    completelySuppressSoundTabAudioControls();
+                }, 500);
                 break;
                 
             case 'mainTab':
@@ -214,6 +218,100 @@ function setupDeferredModuleLoading() {
                 break;
         }
     });
+}
+
+/**
+ * Supprime complètement et définitivement tous les contrôles audio de l'onglet Sound Control
+ */
+function completelySuppressSoundTabAudioControls() {
+    try {
+        console.log('[App] Suppression complète des contrôles audio dans l\'onglet Sound Control');
+        
+        const soundTab = document.getElementById('soundTab');
+        if (!soundTab) {
+            console.log('[App] Onglet Sound Control non trouvé');
+            return;
+        }
+        
+        // Liste exhaustive des sélecteurs à supprimer
+        const selectorsToRemove = [
+            'input[type="file"]',
+            '.file-upload-container',
+            '.custom-file-upload',
+            '.file-selector',
+            '.audio-file-input',
+            '.upload-section',
+            'button[id*="load"]',
+            'button[id*="file"]',
+            'button[id*="audio"]',
+            '.file-input-wrapper',
+            '.audio-controls-container',
+            '.file-controls',
+            '#fileInput',
+            '#audioFileInput',
+            '.record-button',
+            'label[for*="file"]',
+            'label[for*="audio"]'
+        ];
+        
+        // Supprimer tous les éléments correspondants
+        selectorsToRemove.forEach(selector => {
+            const elements = soundTab.querySelectorAll(selector);
+            elements.forEach(element => {
+                console.log(`[App] Suppression de l'élément: ${selector}`);
+                element.remove();
+            });
+        });
+        
+        // Supprimer également les éléments par recherche de texte
+        const allElements = soundTab.querySelectorAll('*');
+        allElements.forEach(element => {
+            const text = element.textContent || '';
+            if (text.includes('Choisir un fichier') || 
+                text.includes('Sélectionner') || 
+                text.includes('Parcourir') ||
+                text.includes('audio') && text.includes('fichier')) {
+                console.log('[App] Suppression d\'élément par contenu texte:', text.substring(0, 50));
+                element.remove();
+            }
+        });
+        
+        // Ajouter un message explicatif permanent
+        if (!soundTab.querySelector('.audio-moved-message')) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'audio-moved-message';
+            messageDiv.innerHTML = `
+                <div style="
+                    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+                    border: 2px solid #1976d2;
+                    border-radius: 10px;
+                    padding: 20px;
+                    margin: 20px;
+                    text-align: center;
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+                ">
+                    <h3 style="color: #1976d2; margin-top: 0;">
+                        🎵 Contrôles Audio Déplacés
+                    </h3>
+                    <p style="color: #555; font-size: 16px; margin-bottom: 15px;">
+                        Les contrôles de chargement audio ont été déplacés vers l'onglet 
+                        <strong>"Heart of Glass: Rita's Adventure"</strong> pour une meilleure intégration 
+                        avec les exercices narratifs.
+                    </p>
+                    <p style="color: #777; font-size: 14px; margin: 0;">
+                        Vous y trouverez tous les contrôles nécessaires pour charger et 
+                        contrôler vos fichiers audio.
+                    </p>
+                </div>
+            `;
+            soundTab.insertBefore(messageDiv, soundTab.firstChild);
+        }
+        
+        console.log('[App] Suppression complète des contrôles audio terminée');
+        
+    } catch (error) {
+        console.error('[App] Erreur lors de la suppression des contrôles audio:', error);
+    }
 }
 
 /**
@@ -360,7 +458,10 @@ function setupBluetoothEvents(bluetooth) {
 function loadAudioModule() {
     try {
         // Vérifier si le module est déjà chargé
-        if (window.audioModuleLoaded) return;
+        if (window.audioModuleLoaded) {
+            console.log('[App] Module audio déjà chargé');
+            return;
+        }
         
         // Détection du chemin de base de l'application
         const appRoot = path.resolve(process.cwd());
@@ -444,7 +545,10 @@ function setupAudioEvents(audioSystem) {
 function loadNarrativeModule() {
     try {
         // Vérifier si le module est déjà chargé
-        if (window.narrativeModuleLoaded) return;
+        if (window.narrativeModuleLoaded) {
+            console.log('[App] Module narratif déjà chargé');
+            return;
+        }
         
         // Détection du chemin de base de l'application
         const appRoot = path.resolve(process.cwd());
@@ -552,6 +656,126 @@ function setupNarrativeEvents(narrativeSystem) {
     });
 }
 
+/**
+ * Crée une fenêtre de dialogue globale et persistante
+ */
+function createPersistentDialogue() {
+    // Vérifier si le conteneur existe déjà
+    if (document.getElementById('persistent-dialogue-container')) return;
+    
+    // Créer le conteneur de dialogue persistant
+    const dialogueContainer = document.createElement('div');
+    dialogueContainer.id = 'persistent-dialogue-container';
+    dialogueContainer.className = 'persistent-dialogue-container';
+    
+    // Ajouter au corps du document pour qu'il soit visible sur tous les onglets
+    document.body.appendChild(dialogueContainer);
+    
+    // Initialiser le système de dialogue avec ce conteneur
+    if (window.narrativeSystem && typeof window.narrativeSystem.dialogueSystem.setup === 'function') {
+        window.narrativeSystem.dialogueSystem.setup(dialogueContainer);
+        console.log('[App] Fenêtre de dialogue persistante créée');
+    } else {
+        // Planifier une tentative plus tard si le système narratif n'est pas encore chargé
+        console.log('[App] Système narratif non disponible, dialogue persistant reporté');
+        setTimeout(() => {
+            if (window.narrativeSystem && typeof window.narrativeSystem.dialogueSystem.setup === 'function') {
+                window.narrativeSystem.dialogueSystem.setup(dialogueContainer);
+                console.log('[App] Fenêtre de dialogue persistante créée (différé)');
+            }
+        }, 2000);
+    }
+}
+
+/**
+ * Charge le module de contrôles audio pour l'onglet narratif
+ */
+function loadAudioControlsModule() {
+    try {
+        // Vérifier si le module est déjà chargé
+        if (window.audioControlsModuleLoaded) {
+            console.log('[App] Module de contrôles audio déjà chargé');
+            return;
+        }
+        
+        // Détection du chemin de base de l'application
+        const appRoot = path.resolve(process.cwd());
+        console.log('[Debug] Chargement du module de contrôles audio...');
+        
+        // Chemin absolu vers le module AudioControls
+        const modulePath = path.join(appRoot, 'src', 'renderer', 'narrative', 'audioControls.js');
+        
+        // Vérifier si le fichier existe
+        if (fs.existsSync(modulePath)) {
+            console.log('[Debug] Le fichier audioControls.js existe, tentative de chargement');
+            const audioControls = require(modulePath);
+            
+            // Référence globale
+            window.audioControlsModule = audioControls;
+            
+            // Trouver le conteneur narratif
+            const narrativeContainer = document.querySelector('.narrative-container');
+            if (narrativeContainer) {
+                // Créer les contrôles audio dans l'onglet narratif
+                audioControls.createAudioControls(narrativeContainer);
+            } else {
+                console.warn('[App] Conteneur narratif non trouvé pour les contrôles audio');
+            }
+            
+            window.audioControlsModuleLoaded = true;
+            console.log('[App] Module de contrôles audio chargé avec succès');
+        } else {
+            console.error(`[App] Fichier audioControls.js non trouvé à ${modulePath}`);
+        }
+    } catch (error) {
+        console.error('[App] Erreur lors du chargement du module de contrôles audio:', error);
+    }
+}
+
+/**
+ * Fonction de débogage pour vérifier l'état des modules
+ */
+function debugModuleStatus() {
+    console.log('=== ÉTAT DES MODULES ===');
+    console.log('audioModuleLoaded:', window.audioModuleLoaded);
+    console.log('bluetoothModuleLoaded:', window.bluetoothModuleLoaded);
+    console.log('narrativeModuleLoaded:', window.narrativeModuleLoaded);
+    console.log('audioControlsModuleLoaded:', window.audioControlsModuleLoaded);
+    
+    console.log('=== OBJETS GLOBAUX ===');
+    console.log('window.audioSystem:', !!window.audioSystem);
+    console.log('window.bluetoothModule:', !!window.bluetoothModule);
+    console.log('window.narrativeSystem:', !!window.narrativeSystem);
+    console.log('window.audioControlsModule:', !!window.audioControlsModule);
+    
+    if (window.audioSystem) {
+        console.log('=== MÉTHODES AUDIO DISPONIBLES ===');
+        console.log('loadAudioFile:', typeof window.audioSystem.loadAudioFile);
+        console.log('togglePlayPause:', typeof window.audioSystem.togglePlayPause);
+        console.log('startPlayback:', typeof window.audioSystem.startPlayback);
+        console.log('stopPlayback:', typeof window.audioSystem.stopPlayback);
+        console.log('setPlaybackRate:', typeof window.audioSystem.setPlaybackRate);
+        console.log('setVolume:', typeof window.audioSystem.setVolume);
+        console.log('isAudioBufferLoaded:', typeof window.audioSystem.isAudioBufferLoaded);
+        console.log('isPlaybackActive:', typeof window.audioSystem.isPlaybackActive);
+        console.log('audioEvents:', !!window.audioSystem.audioEvents);
+    }
+    
+    console.log('=== ÉTAT DE L\'APPLICATION ===');
+    console.log('appState:', window.appState);
+}
+
+// Fonction pour forcer le chargement audio
+window.forceLoadAudio = () => {
+    console.log('[Debug] Forçage du chargement audio...');
+    loadAudioModule();
+    setTimeout(() => {
+        if (window.audioControlsModule && typeof window.audioControlsModule.synchronizeWithAudioSystem === 'function') {
+            window.audioControlsModule.synchronizeWithAudioSystem();
+        }
+    }, 2000);
+};
+
 // Ajout d'un gestionnaire global pour activer l'audio
 document.addEventListener('click', function() {
     safeResumeAudioContext();
@@ -573,6 +797,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Configurer le chargement différé des modules
     setupDeferredModuleLoading();
     
+    // Supprimer immédiatement les contrôles audio de l'onglet Sound au chargement
+    setTimeout(() => {
+        completelySuppressSoundTabAudioControls();
+    }, 1000);
+    
     // Initialiser l'état de l'application
     window.appState = {
         audioReady: false,
@@ -580,10 +809,73 @@ document.addEventListener('DOMContentLoaded', () => {
         narrativeReady: false
     };
     
-    // Charger automatiquement le module narratif au démarrage
+    // MODIFICATION: Charger tous les modules essentiels au démarrage
     setTimeout(() => {
-        loadNarrativeModule();
+        console.log('[App] Chargement des modules essentiels...');
+        
+        // Charger le module audio en premier
+        loadAudioModule();
+        
+        // Charger le module narratif après
+        setTimeout(() => {
+            loadNarrativeModule();
+        }, 1000);
+        
+        // Charger le module Bluetooth
+        setTimeout(() => {
+            loadBluetoothModule();
+        }, 1500);
+        
     }, 800);
+    
+    // Créer la fenêtre de dialogue persistante après un court délai
+    setTimeout(createPersistentDialogue, 2000);
+    
+    // Charger les contrôles audio pour l'onglet narratif après l'initialisation
+    setTimeout(() => {
+        if (!window.audioControlsModuleLoaded) {
+            console.log('[App] Chargement des contrôles audio...');
+            loadAudioControlsModule();
+        }
+    }, 2500);
+    
+    // Gestionnaire pour les changements d'onglet
+    document.addEventListener('tabChanged', (event) => {
+        const { tabId } = event.detail;
+        
+        // Actions spécifiques par onglet
+        if (tabId === 'mainTab') {
+            // S'assurer que tous les modules sont chargés
+            setTimeout(() => {
+                if (!window.audioModuleLoaded) loadAudioModule();
+                if (!window.narrativeModuleLoaded) loadNarrativeModule();
+                if (!window.audioControlsModuleLoaded) loadAudioControlsModule();
+            }, 500);
+        }
+    });
+    
+    // Exécuter le débogage après 3 secondes
+    setTimeout(() => {
+        debugModuleStatus();
+        
+        // Forcer le chargement du module audio si pas encore chargé
+        if (!window.audioModuleLoaded) {
+            console.log('[Debug] Tentative de chargement forcé du module audio');
+            loadAudioModule();
+        }
+        
+        // Recharger les contrôles audio après 2 secondes supplémentaires
+        setTimeout(() => {
+            debugModuleStatus();
+            
+            // Forcer la synchronisation des contrôles audio
+            if (window.audioControlsModule && typeof window.audioControlsModule.synchronizeWithAudioSystem === 'function') {
+                console.log('[Debug] Synchronisation forcée des contrôles audio');
+                window.audioControlsModule.synchronizeWithAudioSystem();
+            }
+        }, 2000);
+        
+    }, 3000);
     
     console.log('[App] Application initialisée avec succès');
 });

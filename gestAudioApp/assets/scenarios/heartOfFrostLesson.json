@@ -1,0 +1,60 @@
+{
+  "id": "heart-of-frost-lesson",
+  "title": "Leçon : Cœur de givre",
+  "description": "Maîtrisez l'art de la rotation parfaite",
+  "steps": [
+    {
+      "type": "dialogue",
+      "speaker": "Rita",
+      "text": "Bonjour ! Aujourd'hui, nous allons apprendre un mouvement essentiel : la rotation parfaite.",
+      "expression": "neutral"
+    },
+    {
+      "type": "dialogue",
+      "speaker": "Rita", 
+      "text": "Imaginez que vous tenez une baguette de verre que vous devez chauffer uniformément dans une flamme.",
+      "expression": "neutral"
+    },
+    {
+      "type": "dialogue",
+      "speaker": "Rita",
+      "text": "Le mouvement doit être circulaire, régulier et constant. C'est ce qu'on appelle le 'Cœur de givre'.",
+      "expression": "happy"
+    },
+    {
+      "type": "dialogue",
+      "speaker": "Rita",
+      "text": "Prenez le capteur droit dans votre main dominante et tenez-le horizontalement.",
+      "expression": "neutral"
+    },
+    {
+      "type": "dialogue",
+      "speaker": "Rita",
+      "text": "Vous devrez effectuer 8 rotations complètes à un rythme de 60 battements par minute.",
+      "expression": "neutral"
+    },
+    {
+      "type": "dialogue",
+      "speaker": "Rita",
+      "text": "L'audio vous guidera : plus votre mouvement est précis, plus le son sera harmonieux !",
+      "expression": "excited"
+    },
+    {
+      "type": "exercise",
+      "exerciseId": "heartOfFrost",
+      "audioFile": "exercises/heartbeat.mp3"
+    },
+    {
+      "type": "dialogue",
+      "speaker": "Rita",
+      "text": "Magnifique ! Vous avez maîtrisé la rotation parfaite.",
+      "expression": "excited"
+    },
+    {
+      "type": "dialogue",
+      "speaker": "Rita",
+      "text": "Ce mouvement est fondamental pour de nombreuses techniques avancées. Vous êtes maintenant prêt pour des défis plus complexes !",
+      "expression": "happy"
+    }
+  ]
+}

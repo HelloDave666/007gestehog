@@ -255,13 +255,66 @@ const lessonSystem = {
     // Charger les leçons depuis un fichier JSON
     loadLessons(filePath) {
         try {
+            console.log(`[Narrative] Tentative de chargement des leçons depuis: ${filePath}`);
+            
+            // Vérifier si le fichier existe
+            if (!fs.existsSync(filePath)) {
+                console.warn(`[Narrative] Le fichier ${filePath} n'existe pas`);
+                this.loadFromScenarios();
+                return false;
+            }
+            
             const lessonsData = fs.readFileSync(filePath, 'utf8');
-            this.lessons = JSON.parse(lessonsData);
+            let parsedData;
+            
+            try {
+                parsedData = JSON.parse(lessonsData);
+            } catch (parseError) {
+                console.error('[Narrative] Erreur de parsing JSON:', parseError);
+                this.loadFromScenarios();
+                return false;
+            }
+            
+            // S'assurer que this.lessons est bien un tableau
+            if (Array.isArray(parsedData)) {
+                this.lessons = parsedData;
+            } else if (parsedData && typeof parsedData === 'object') {
+                // Si c'est un objet, essayer de trouver une propriété qui pourrait être notre tableau de leçons
+                if (parsedData.lessons && Array.isArray(parsedData.lessons)) {
+                    this.lessons = parsedData.lessons;
+                } else {
+                    // Convertir l'objet en tableau si possible
+                    console.warn('[Narrative] Format inattendu, tentative de conversion en tableau');
+                    this.lessons = Object.values(parsedData).filter(item => typeof item === 'object');
+                }
+            } else {
+                console.error('[Narrative] Format de données invalide pour les leçons');
+                this.lessons = [];
+                this.loadFromScenarios();
+                return false;
+            }
+            
+            // S'assurer que this.lessons est bien un tableau valide
+            if (!Array.isArray(this.lessons)) {
+                console.error('[Narrative] Échec de conversion en tableau');
+                this.lessons = [];
+                this.loadFromScenarios();
+                return false;
+            }
+            
             console.log(`[Narrative] ${this.lessons.length} leçons chargées`);
+            
+            // Ajouter manuellement les leçons si elles n'existent pas déjà
+            this.addHeartOfFrostLesson();
+            this.addBluetoothConnectionLesson();
+            
             narrativeEvents.emit('lessonsLoaded', this.lessons);
             return true;
         } catch (error) {
             console.error('[Narrative] Erreur lors du chargement des leçons:', error);
+            
+            // S'assurer que lessons est initialisé comme un tableau vide
+            this.lessons = [];
             
             // Réutiliser les scenarios existants si possible
             this.loadFromScenarios();
@@ -283,6 +336,11 @@ const lessonSystem = {
                 // Adapter le format scenario au format leçon
                 this.lessons = [this.convertScenarioToLesson(introScenario)];
                 console.log(`[Narrative] Scenario converti en leçon: ${this.lessons[0].title}`);
+                
+                // Ajouter manuellement les leçons
+                this.addHeartOfFrostLesson();
+                this.addBluetoothConnectionLesson();
+                
                 narrativeEvents.emit('lessonsLoaded', this.lessons);
                 return;
             }
@@ -292,6 +350,153 @@ const lessonSystem = {
         } catch (error) {
             console.error('[Narrative] Erreur lors de la conversion des scenarios:', error);
             this.createDefaultLessons();
+        }
+    },
+    
+    // Ajouter la leçon Cœur de givre
+    addHeartOfFrostLesson() {
+        // S'assurer que lessons est un tableau
+        if (!Array.isArray(this.lessons)) {
+            console.error('[Narrative] this.lessons n\'est pas un tableau lors de l\'ajout de Cœur de givre');
+            this.lessons = [];
+        }
+        
+        // Vérifier si la leçon existe déjà
+        const exists = this.lessons.some(lesson => lesson && lesson.id === 'heart-of-frost');
+        
+        if (!exists) {
+            console.log('[Narrative] Ajout de la leçon Cœur de givre');
+            this.lessons.push({
+                id: 'heart-of-frost',
+                title: 'Leçon : Cœur de givre',
+                description: 'Maîtrisez l\'art de la rotation parfaite',
+                steps: [
+                    {
+                        type: 'dialogue',
+                        speaker: 'Rita',
+                        text: 'Bonjour ! Aujourd\'hui, nous allons apprendre un mouvement essentiel : la rotation parfaite.',
+                        expression: 'neutral'
+                    },
+                    {
+                        type: 'dialogue',
+                        speaker: 'Rita',
+                        text: 'Imaginez que vous tenez une baguette de verre que vous devez chauffer uniformément dans une flamme.',
+                        expression: 'neutral'
+                    },
+                    {
+                        type: 'dialogue',
+                        speaker: 'Rita',
+                        text: 'Le mouvement doit être circulaire, régulier et constant. C\'est ce qu\'on appelle le \'Cœur de givre\'.',
+                        expression: 'happy'
+                    },
+                    {
+                        type: 'dialogue',
+                        speaker: 'Rita',
+                        text: 'Prenez le capteur gauche dans votre main dominante et tenez-le horizontalement.',
+                        expression: 'neutral'
+                    },
+                    {
+                        type: 'dialogue',
+                        speaker: 'Rita',
+                        text: 'Vous devrez effectuer 8 rotations complètes à un rythme de 60 battements par minute.',
+                        expression: 'neutral'
+                    },
+                    {
+                        type: 'dialogue',
+                        speaker: 'Rita',
+                        text: 'L\'audio vous guidera : plus votre mouvement est précis, plus le son sera harmonieux !',
+                        expression: 'excited'
+                    },
+                    {
+                        type: 'exercise',
+                        exerciseId: 'heartOfFrost',
+                        audioFile: 'exercises/heartbeat.mp3'
+                    },
+                    {
+                        type: 'dialogue',
+                        speaker: 'Rita',
+                        text: 'Magnifique ! Vous avez maîtrisé la rotation parfaite.',
+                        expression: 'excited'
+                    },
+                    {
+                        type: 'dialogue',
+                        speaker: 'Rita',
+                        text: 'Ce mouvement est fondamental pour de nombreuses techniques avancées. Vous êtes maintenant prêt pour des défis plus complexes !',
+                        expression: 'happy'
+                    }
+                ]
+            });
+        }
+    },
+    
+    // Ajouter la leçon de connexion des capteurs Bluetooth
+    addBluetoothConnectionLesson() {
+        // S'assurer que lessons est un tableau
+        if (!Array.isArray(this.lessons)) {
+            console.error('[Narrative] this.lessons n\'est pas un tableau lors de l\'ajout de la leçon Bluetooth');
+            this.lessons = [];
+        }
+        
+        // Vérifier si la leçon existe déjà
+        const exists = this.lessons.some(lesson => lesson && lesson.id === 'bluetooth-connection');
+        
+        if (!exists) {
+            console.log('[Narrative] Ajout de la leçon de connexion Bluetooth');
+            this.lessons.push({
+                id: 'bluetooth-connection',
+                title: 'Connexion des capteurs',
+                description: 'Apprenez à connecter et utiliser les capteurs Bluetooth',
+                steps: [
+                    {
+                        type: 'dialogue',
+                        speaker: 'Guide',
+                        text: 'Bienvenue ! Nous allons apprendre à connecter vos capteurs Bluetooth.',
+                        expression: 'neutral'
+                    },
+                    {
+                        type: 'dialogue',
+                        speaker: 'Guide',
+                        text: 'Assurez-vous que les capteurs sont allumés et que le Bluetooth de votre ordinateur est activé.',
+                        expression: 'neutral'
+                    },
+                    {
+                        type: 'dialogue',
+                        speaker: 'Guide',
+                        text: 'Cliquez maintenant sur le bouton "Rechercher des capteurs" dans l\'onglet "Blue Tools".',
+                        expression: 'neutral'
+                    },
+                    {
+                        type: 'dialogue',
+                        speaker: 'Guide',
+                        text: 'Vous devriez voir apparaître vos capteurs dans la liste. Cliquez sur chacun d\'eux pour les connecter.',
+                        expression: 'neutral'
+                    },
+                    {
+                        type: 'dialogue',
+                        speaker: 'Guide',
+                        text: 'Une fois connectés, les capteurs s\'illumineront et les indicateurs passeront au vert.',
+                        expression: 'happy'
+                    },
+                    {
+                        type: 'dialogue',
+                        speaker: 'Guide',
+                        text: 'Prenez le capteur gauche dans votre main gauche et le capteur droit dans votre main droite.',
+                        expression: 'neutral'
+                    },
+                    {
+                        type: 'dialogue',
+                        speaker: 'Guide',
+                        text: 'Essayez de les incliner doucement pour voir les valeurs changer dans l\'interface.',
+                        expression: 'excited'
+                    },
+                    {
+                        type: 'dialogue',
+                        speaker: 'Guide',
+                        text: 'Parfait ! Vous êtes maintenant prêt à utiliser les capteurs pour les exercices !',
+                        expression: 'happy'
+                    }
+                ]
+            });
         }
     },
     
@@ -384,13 +589,24 @@ const lessonSystem = {
             }
         ];
         
+        // Ajouter les leçons spéciales
+        this.addHeartOfFrostLesson();
+        this.addBluetoothConnectionLesson();
+        
         console.log('[Narrative] Leçons par défaut créées');
         narrativeEvents.emit('lessonsLoaded', this.lessons);
     },
     
     // Démarrer une leçon spécifique
     startLesson(lessonId) {
-        const lesson = this.lessons.find(l => l.id === lessonId);
+        // S'assurer que lessons est un tableau
+        if (!Array.isArray(this.lessons)) {
+            console.error('[Narrative] this.lessons n\'est pas un tableau lors du démarrage de la leçon');
+            this.lessons = [];
+            this.createDefaultLessons();
+        }
+        
+        const lesson = this.lessons.find(l => l && l.id === lessonId);
         if (!lesson) {
             console.error(`[Narrative] Leçon non trouvée: ${lessonId}`);
             return false;
@@ -430,11 +646,16 @@ const lessonSystem = {
                 }
             );
         } else if (step.type === 'exercise') {
-            // Créer une interface pour l'exercice
-            this.showExerciseInterface(step);
-            
-            // Émettre un événement pour notifier le système audio
-            narrativeEvents.emit('exerciseStarted', step);
+            // Vérifier si c'est l'exercice "Cœur de givre"
+            if (step.exerciseId === 'heartOfFrost') {
+                startHeartOfFrostExercise();
+            } else {
+                // Créer une interface pour l'exercice standard
+                this.showExerciseInterface(step);
+                
+                // Émettre un événement pour notifier le système audio
+                narrativeEvents.emit('exerciseStarted', step);
+            }
         }
         
         return true;
@@ -493,6 +714,251 @@ const lessonSystem = {
 };
 
 /**
+ * Lance l'exercice "Cœur de givre" avec connexion audio améliorée
+ */
+async function startHeartOfFrostExercise() {
+  try {
+    console.log('[Narrative] Lancement de l\'exercice Cœur de givre');
+    
+    // Charger les modules (en utilisant des chemins relatifs)
+    const HeartOfFrostExercise = require('./exercises/heartOfFrost');
+    const HeartOfFrostInterface = require('./exercises/heartOfFrostInterface');
+    
+    // Créer ou réutiliser le conteneur
+    let exerciseContainer = document.getElementById('exercise-container');
+    if (!exerciseContainer) {
+      exerciseContainer = document.createElement('div');
+      exerciseContainer.id = 'exercise-container';
+      exerciseContainer.className = 'exercise-container';
+      
+      // Ajouter au DOM (adapter selon votre structure)
+      if (dialogueSystem && dialogueSystem.container) {
+        dialogueSystem.container.parentNode.appendChild(exerciseContainer);
+      } else {
+        document.body.appendChild(exerciseContainer);
+      }
+    }
+    
+    // Créer l'interface
+    const interface = new HeartOfFrostInterface(exerciseContainer);
+    interface.create();
+    
+    // Créer l'exercice
+    const exercise = new HeartOfFrostExercise();
+    
+    // Vérifier et établir la connexion avec le système audio
+    let audioSystemReady = false;
+    if (window.audioSystem) {
+      console.log('[HeartOfFrost] Connexion avec le système audio établie');
+      audioSystemReady = true;
+      
+      // Vérifier si un fichier audio est déjà chargé
+      const audioLoaded = window.audioSystem.isAudioBufferLoaded ? window.audioSystem.isAudioBufferLoaded() : false;
+      
+      if (!audioLoaded) {
+        // Afficher un message pour inviter l'utilisateur à charger un fichier
+        interface.showFeedback("Veuillez charger un fichier audio dans l'onglet principal avant de commencer l'exercice", "info");
+        
+        // Ajouter un bouton pour basculer vers l'onglet principal où se trouvent maintenant les contrôles audio
+        const loadAudioBtn = document.createElement('button');
+        loadAudioBtn.className = 'btn-load-audio';
+        loadAudioBtn.textContent = "Charger un fichier audio";
+        loadAudioBtn.style.backgroundColor = '#3498db';
+        loadAudioBtn.style.color = 'white';
+        loadAudioBtn.style.padding = '10px 20px';
+        loadAudioBtn.style.border = 'none';
+        loadAudioBtn.style.borderRadius = '5px';
+        loadAudioBtn.style.margin = '10px auto';
+        loadAudioBtn.style.display = 'block';
+        loadAudioBtn.style.cursor = 'pointer';
+        
+        loadAudioBtn.addEventListener('click', () => {
+          // Basculer vers l'onglet principal où se trouvent maintenant les contrôles audio
+          const mainTab = document.querySelector('[data-tab="mainTab"]');
+          if (mainTab) {
+            mainTab.click();
+          }
+        });
+        
+        exerciseContainer.appendChild(loadAudioBtn);
+      } else {
+        // Préparer le système audio pour l'exercice
+        console.log('[HeartOfFrost] Fichier audio déjà chargé, préparation du contrôle');
+        
+        // Activer le mode boucle
+        if (typeof window.audioSystem.setLoopPlayback === 'function') {
+          window.audioSystem.setLoopPlayback(true);
+          console.log('[HeartOfFrost] Mode boucle activé');
+        }
+        
+        // S'assurer que les fonctions de contrôle audio existent
+        if (typeof window.audioSystem.setPlaybackRate === 'function') {
+          console.log('[HeartOfFrost] Contrôle de vitesse disponible');
+        } else {
+          console.warn('[HeartOfFrost] Contrôle de vitesse non disponible');
+        }
+        
+        if (typeof window.audioSystem.setVolume === 'function') {
+          console.log('[HeartOfFrost] Contrôle de volume disponible');
+        } else {
+          console.warn('[HeartOfFrost] Contrôle de volume non disponible');
+        }
+        
+        // Démarrer la lecture
+        setTimeout(() => {
+          if (typeof window.audioSystem.startPlayback === 'function') {
+            window.audioSystem.startPlayback();
+            console.log('[HeartOfFrost] Lecture audio démarrée');
+          }
+        }, 500);
+      }
+    } else {
+      console.warn('[HeartOfFrost] Système audio non disponible');
+      interface.showFeedback("Système audio non disponible. Veuillez d'abord charger le module audio.", "info");
+    }
+    
+    // Écouter les événements de l'exercice
+    exercise.on('started', (data) => {
+      console.log('[HeartOfFrost] Exercice démarré', data);
+      interface.showFeedback('Commencez à faire tourner le capteur gauche !', 'info');
+    });
+    
+    exercise.on('update', (data) => {
+      interface.update(data);
+      
+      // Cette partie est maintenant gérée directement dans heartOfFrost.js
+      // pour une meilleure réactivité
+    });
+    
+    exercise.on('rotationComplete', (data) => {
+      interface.onRotationComplete();
+      console.log(`[HeartOfFrost] Rotation ${data.count}/${data.totalTarget}`);
+      
+      // Jouer un son spécial pour marquer la rotation
+      narrativeEvents.emit('playRotationSound');
+    });
+    
+    exercise.on('completed', (data) => {
+      console.log('[HeartOfFrost] Exercice terminé', data);
+      interface.showFeedback(`Excellent ! Score final: ${data.finalScore}%`, 'success');
+      
+      // Arrêter la lecture audio
+      if (window.audioSystem && typeof window.audioSystem.isPlaybackActive === 'function' && window.audioSystem.isPlaybackActive()) {
+        if (typeof window.audioSystem.stopPlayback === 'function') {
+          window.audioSystem.stopPlayback();
+        }
+      }
+      
+      // Continuer la leçon après 3 secondes
+      setTimeout(() => {
+        exerciseContainer.style.display = 'none';
+        if (lessonSystem && typeof lessonSystem.nextStep === 'function') {
+          lessonSystem.nextStep();
+        }
+      }, 3000);
+    });
+    
+    // Écouter l'événement de chargement de fichier audio pour reprendre l'exercice
+    if (window.audioSystem && window.audioSystem.audioEvents) {
+      const audioLoadListener = (data) => {
+        console.log('[HeartOfFrost] Fichier audio chargé:', data.fileName);
+        interface.showFeedback(`Fichier audio chargé: ${data.fileName}`, "info");
+        
+        // Supprimer le bouton de chargement s'il existe
+        const loadBtn = exerciseContainer.querySelector('.btn-load-audio');
+        if (loadBtn) {
+          loadBtn.remove();
+        }
+        
+        // Retourner à l'onglet principal après 1 seconde
+        setTimeout(() => {
+          const mainTab = document.querySelector('[data-tab="mainTab"]');
+          if (mainTab) {
+            mainTab.click();
+          }
+          
+          // Préparer et démarrer la lecture
+          if (window.audioSystem) {
+            // Activer le mode boucle
+            if (typeof window.audioSystem.setLoopPlayback === 'function') {
+              window.audioSystem.setLoopPlayback(true);
+            }
+            
+            // Démarrer la lecture
+            if (typeof window.audioSystem.startPlayback === 'function') {
+              window.audioSystem.startPlayback();
+            }
+            
+            audioSystemReady = true;
+            console.log('[HeartOfFrost] Système audio maintenant prêt pour l\'exercice');
+          }
+        }, 1000);
+      };
+      
+      // Ajouter l'écouteur d'événement
+      window.audioSystem.audioEvents.on('audioFileLoaded', audioLoadListener);
+      
+      // Nettoyer l'écouteur lorsque l'exercice est terminé
+      const cleanupAudioListener = () => {
+        if (window.audioSystem && window.audioSystem.audioEvents) {
+          window.audioSystem.audioEvents.removeListener('audioFileLoaded', audioLoadListener);
+        }
+      };
+      
+      exercise.on('completed', cleanupAudioListener);
+      exercise.on('stopped', cleanupAudioListener);
+    }
+    
+    // Interval de mise à jour pour les capteurs
+    const updateInterval = setInterval(() => {
+      if (!exercise.isActive) {
+        clearInterval(updateInterval);
+        return;
+      }
+      
+      // Obtenir les données des capteurs
+      if (window.bluetoothModule && typeof window.bluetoothModule.getCurrentSensorValues === 'function') {
+        const sensorData = window.bluetoothModule.getCurrentSensorValues();
+        exercise.update(sensorData);
+      }
+    }, 50); // 20 Hz pour une détection fluide
+    
+    // Fonctions globales pour les boutons
+    window.stopHeartOfFrost = () => {
+      exercise.stop();
+      clearInterval(updateInterval);
+      exerciseContainer.style.display = 'none';
+      
+      if (window.audioSystem && typeof window.audioSystem.isPlaybackActive === 'function' && window.audioSystem.isPlaybackActive()) {
+        if (typeof window.audioSystem.stopPlayback === 'function') {
+          window.audioSystem.stopPlayback();
+        }
+      }
+      
+      // Nettoyer les écouteurs d'événements audio
+      if (window.audioSystem && window.audioSystem.audioEvents) {
+        window.audioSystem.audioEvents.removeAllListeners('audioFileLoaded');
+      }
+      
+      narrativeEvents.emit('exerciseStopped', 'heartOfFrost');
+    };
+    
+    window.resetHeartOfFrost = () => {
+      exercise.reset();
+      exercise.start();
+      interface.showFeedback('Exercice redémarré !', 'info');
+    };
+    
+    // Afficher le conteneur et démarrer
+    exerciseContainer.style.display = 'block';
+    exercise.start();
+    
+  } catch (error) {
+    console.error('[Narrative] Erreur lors du lancement de Cœur de givre:', error);
+  }
+}
+
+/**
  * Initialise le système narratif
  * @param {HTMLElement} container - Conteneur principal pour l'interface
  */
@@ -503,6 +969,12 @@ function initNarrativeSystem(container) {
     }
     
     console.log('[Narrative] Initialisation du système narratif');
+    
+    // S'assurer que lessonSystem.lessons est bien initialisé comme un tableau
+    if (!Array.isArray(lessonSystem.lessons)) {
+        console.log('[Narrative] Initialisation du tableau de leçons');
+        lessonSystem.lessons = [];
+    }
     
     // Créer le conteneur pour le système de dialogue
     const narrativeContainer = document.createElement('div');
@@ -571,13 +1043,29 @@ function populateLessonSelector() {
     // Vider le sélecteur
     lessonSelect.innerHTML = '<option value="">-- Choisir une leçon --</option>';
     
+    // Vérifier que lessons est bien un tableau
+    if (!Array.isArray(lessonSystem.lessons)) {
+        console.error('[Narrative] lessonSystem.lessons n\'est pas un tableau dans populateLessonSelector:', lessonSystem.lessons);
+        
+        // Initialiser comme tableau vide si ce n'est pas un tableau
+        lessonSystem.lessons = [];
+        
+        // Ajouter manuellement les leçons
+        lessonSystem.addHeartOfFrostLesson();
+        lessonSystem.addBluetoothConnectionLesson();
+    }
+    
     // Ajouter les options pour chaque leçon
     lessonSystem.lessons.forEach(lesson => {
-        const option = document.createElement('option');
-        option.value = lesson.id;
-        option.textContent = lesson.title;
-        lessonSelect.appendChild(option);
+        if (lesson && lesson.id && lesson.title) {
+            const option = document.createElement('option');
+            option.value = lesson.id;
+            option.textContent = lesson.title;
+            lessonSelect.appendChild(option);
+        }
     });
+    
+    console.log(`[Narrative] ${lessonSystem.lessons.length} leçons chargées dans le sélecteur`);
 }
 
 // Gestionnaire pour le chargement de leçons
