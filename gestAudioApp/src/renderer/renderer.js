@@ -222,10 +222,12 @@ function setupDeferredModuleLoading() {
 
 /**
  * Supprime complètement et définitivement tous les contrôles audio de l'onglet Sound Control
+ * tout en préservant la sensibilité des capteurs et les réglages avancés
+ * et réorganise les éléments conservés
  */
 function completelySuppressSoundTabAudioControls() {
     try {
-        console.log('[App] Suppression complète des contrôles audio dans l\'onglet Sound Control');
+        console.log("[App] Suppression des contrôles audio dans l'onglet Sound Control");
         
         const soundTab = document.getElementById('soundTab');
         if (!soundTab) {
@@ -233,81 +235,134 @@ function completelySuppressSoundTabAudioControls() {
             return;
         }
         
-        // Liste exhaustive des sélecteurs à supprimer
-        const selectorsToRemove = [
-            'input[type="file"]',
+        // Éléments à supprimer (sélection précise)
+        const elementsToRemove = [
+            // Sélection de fichier audio
             '.file-upload-container',
-            '.custom-file-upload',
             '.file-selector',
-            '.audio-file-input',
-            '.upload-section',
-            'button[id*="load"]',
-            'button[id*="file"]',
-            'button[id*="audio"]',
-            '.file-input-wrapper',
-            '.audio-controls-container',
-            '.file-controls',
-            '#fileInput',
-            '#audioFileInput',
+            'input[type="file"]',
+            'label[for="audioFile"]',
+            '#fileNameDisplay',
+            
+            // Contrôles de lecture
+            '#playPauseButton',
+            '#stopButton',
+            '.play-controls',
+            '.playback-controls',
+            
+            // Affichage de position et timeline
+            '#timelineContainer',
+            '#timelineProgress',
+            '#timelineHandle',
+            '#positionDisplay',
+            
+            // Autres éléments liés à la lecture
+            '#loopCheckbox',
+            'label[for="loopCheckbox"]',
+            '.loop-checkbox-container',
+            
+            // Contrôles d'enregistrement
+            '#recordButton',
             '.record-button',
-            'label[for*="file"]',
-            'label[for*="audio"]'
+            '#recordingStatus',
+            
+            // Statut audio
+            '#audioStatus',
+            '.audio-status',
+            
+            // Messages informatifs existants
+            '.audio-moved-message',
+            '.audio-info-message',
+            
+            // Indicateurs de vitesse et volume
+            '#speedDisplay',
+            '#volumeDisplay',
+            '.speed-display',
+            '.volume-display',
+            '.speed-control',
+            '.volume-control',
+            'div[id*="speed"]',
+            'div[id*="volume"]',
+            'div[id*="vitesse"]',
+            'span[id*="speed"]',
+            'span[id*="volume"]'
         ];
         
-        // Supprimer tous les éléments correspondants
-        selectorsToRemove.forEach(selector => {
+        // Supprimer chaque élément correspondant
+        elementsToRemove.forEach(selector => {
             const elements = soundTab.querySelectorAll(selector);
             elements.forEach(element => {
-                console.log(`[App] Suppression de l'élément: ${selector}`);
+                console.log("[App] Suppression de l'élément: " + selector);
                 element.remove();
             });
         });
         
-        // Supprimer également les éléments par recherche de texte
-        const allElements = soundTab.querySelectorAll('*');
-        allElements.forEach(element => {
-            const text = element.textContent || '';
-            if (text.includes('Choisir un fichier') || 
-                text.includes('Sélectionner') || 
-                text.includes('Parcourir') ||
-                text.includes('audio') && text.includes('fichier')) {
-                console.log('[App] Suppression d\'élément par contenu texte:', text.substring(0, 50));
-                element.remove();
+        // Rechercher et supprimer les conteneurs qui contiennent ces éléments
+        const containers = soundTab.querySelectorAll('.controls-container, .audio-controls-container, .file-controls');
+        containers.forEach(container => {
+            // Ne supprimer le conteneur que s'il ne contient pas les éléments à conserver
+            const hasSensitivityControls = container.querySelector('#sensitivitySlider, #sensitivityValue');
+            const hasAdvancedControls = container.querySelector('#grainSizeInput, #overlapInput, #windowTypeSelect');
+            
+            if (!hasSensitivityControls && !hasAdvancedControls) {
+                console.log("[App] Suppression d'un conteneur de contrôles audio");
+                container.remove();
             }
         });
         
-        // Ajouter un message explicatif permanent
-        if (!soundTab.querySelector('.audio-moved-message')) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'audio-moved-message';
-            messageDiv.innerHTML = `
-                <div style="
-                    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-                    border: 2px solid #1976d2;
-                    border-radius: 10px;
-                    padding: 20px;
-                    margin: 20px;
-                    text-align: center;
-                    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-                ">
-                    <h3 style="color: #1976d2; margin-top: 0;">
-                        🎵 Contrôles Audio Déplacés
-                    </h3>
-                    <p style="color: #555; font-size: 16px; margin-bottom: 15px;">
-                        Les contrôles de chargement audio ont été déplacés vers l'onglet 
-                        <strong>"Heart of Glass: Rita's Adventure"</strong> pour une meilleure intégration 
-                        avec les exercices narratifs.
-                    </p>
-                    <p style="color: #777; font-size: 14px; margin: 0;">
-                        Vous y trouverez tous les contrôles nécessaires pour charger et 
-                        contrôler vos fichiers audio.
-                    </p>
-                </div>
-            `;
-            soundTab.insertBefore(messageDiv, soundTab.firstChild);
+        // Supprimer également les textes de vitesse et volume par recherche de texte
+        const allElements = soundTab.querySelectorAll('*');
+        allElements.forEach(element => {
+            const text = element.textContent || '';
+            if (text.includes('Vitesse:') || 
+                text.includes('Volume:') || 
+                text.includes('vitesse') || 
+                text.includes('volume') ||
+                text.includes('Speed:') ||
+                text.includes('speed')) {
+                // Vérifier qu'il ne s'agit pas d'un élément de sensibilité ou paramètres avancés
+                const isPartOfSensitivity = element.closest('.sensitivity-controls');
+                const isPartOfAdvanced = element.closest('.advanced-controls');
+                if (!isPartOfSensitivity && !isPartOfAdvanced) {
+                    console.log("[App] Suppression d'élément texte:", text.substring(0, 50));
+                    element.remove();
+                }
+            }
+        });
+        
+        // Réorganiser les éléments conservés pour les placer en haut de la page
+        const sensitivitySection = soundTab.querySelector('.sensitivity-section, .sensitivity-controls');
+        const advancedSection = soundTab.querySelector('.advanced-section, .advanced-controls, .advanced-parameters');
+        
+        if (sensitivitySection && advancedSection) {
+            // Créer un nouveau conteneur pour les regrouper
+            const newContainer = document.createElement('div');
+            newContainer.className = 'sound-controls-container';
+            newContainer.style.marginTop = '20px';
+            
+            // Cloner les sections pour les déplacer
+            const sensitivityClone = sensitivitySection.cloneNode(true);
+            const advancedClone = advancedSection.cloneNode(true);
+            
+            // Ajouter au nouveau conteneur
+            newContainer.appendChild(sensitivityClone);
+            newContainer.appendChild(advancedClone);
+            
+            // Insérer en haut de l'onglet
+            if (soundTab.firstChild) {
+                soundTab.insertBefore(newContainer, soundTab.firstChild);
+            } else {
+                soundTab.appendChild(newContainer);
+            }
+            
+            // Supprimer les sections d'origine
+            sensitivitySection.remove();
+            advancedSection.remove();
+            
+            console.log("[App] Réorganisation des contrôles terminée");
         }
         
-        console.log('[App] Suppression complète des contrôles audio terminée');
+        console.log("[App] Suppression des contrôles audio terminée");
         
     } catch (error) {
         console.error('[App] Erreur lors de la suppression des contrôles audio:', error);
@@ -658,6 +713,7 @@ function setupNarrativeEvents(narrativeSystem) {
 
 /**
  * Crée une fenêtre de dialogue globale et persistante
+ * Version améliorée avec centrage et largeur adaptée
  */
 function createPersistentDialogue() {
     // Vérifier si le conteneur existe déjà
@@ -667,6 +723,16 @@ function createPersistentDialogue() {
     const dialogueContainer = document.createElement('div');
     dialogueContainer.id = 'persistent-dialogue-container';
     dialogueContainer.className = 'persistent-dialogue-container';
+    
+    // Appliquer les styles pour centrer et définir la largeur
+    dialogueContainer.style.position = 'fixed';
+    dialogueContainer.style.bottom = '20px';
+    dialogueContainer.style.left = '0';
+    dialogueContainer.style.right = '0';
+    dialogueContainer.style.width = '80%'; // Largeur par défaut
+    dialogueContainer.style.maxWidth = '800px'; // Largeur maximale pour grands écrans
+    dialogueContainer.style.margin = '0 auto'; // Centrage horizontal
+    dialogueContainer.style.zIndex = '1000'; // S'assurer qu'il est au-dessus des autres éléments
     
     // Ajouter au corps du document pour qu'il soit visible sur tous les onglets
     document.body.appendChild(dialogueContainer);
@@ -685,6 +751,32 @@ function createPersistentDialogue() {
             }
         }, 2000);
     }
+    
+    // Ajuster la largeur en fonction de la taille de l'onglet
+    function adjustDialogueWidth() {
+        // Trouver l'onglet actif ou utiliser le premier onglet comme référence
+        const activeTab = document.querySelector('.tab-content.active') || document.querySelector('.tab-content');
+        
+        if (activeTab) {
+            // Récupérer la largeur de l'onglet
+            const tabWidth = activeTab.clientWidth;
+            
+            // Appliquer une largeur proportionnelle à celle de l'onglet
+            const newWidth = Math.min(tabWidth - 40, 800); // 20px de marge de chaque côté, max 800px
+            dialogueContainer.style.width = `${newWidth}px`;
+            
+            console.log(`[App] Largeur du dialogue ajustée à ${newWidth}px (largeur onglet: ${tabWidth}px)`);
+        }
+    }
+    
+    // Ajuster la largeur au chargement
+    setTimeout(adjustDialogueWidth, 500);
+    
+    // Réajuster la largeur lors du changement d'onglet
+    document.addEventListener('tabChanged', adjustDialogueWidth);
+    
+    // Réajuster la largeur lors du redimensionnement de la fenêtre
+    window.addEventListener('resize', adjustDialogueWidth);
 }
 
 /**

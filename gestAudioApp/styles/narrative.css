@@ -66,16 +66,68 @@
   cursor: pointer;
 }
 
-/* === DIALOGUE PERSISTANT === */
+/* === DIALOGUE PERSISTANT AMÉLIORÉ === */
 .persistent-dialogue-container {
   position: fixed;
   bottom: 20px;
-  left: 20px;
-  width: 400px;
-  z-index: 9999;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  left: 0;
+  right: 0;
+  width: 80%;
+  max-width: 800px;
+  margin: 0 auto;
+  z-index: 1000;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
   border-radius: 10px;
   overflow: hidden;
+  transition: all 0.3s ease;
+  animation: slideUp 0.5s ease-out;
+}
+
+/* Améliorations pour la boîte de dialogue */
+.dialogue-container {
+  width: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: stretch;
+}
+
+/* Styles améliorés pour le portrait */
+.dialogue-portrait {
+  flex: 0 0 auto;
+  max-width: 120px;
+  min-width: 80px;
+  width: 25%;
+  background-color: rgba(20, 20, 20, 0.8);
+  padding: 10px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialogue-portrait img {
+  width: 100%;
+  height: auto;
+  border-radius: 5px;
+}
+
+/* Styles améliorés pour le contenu du dialogue */
+.dialogue-content {
+  flex: 1;
+  padding: 15px 20px;
+  color: white;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.dialogue-speaker {
+  color: #4fc3f7;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.dialogue-text {
+  margin: 0;
 }
 
 /* === SECTION GUIDE === */
@@ -633,6 +685,18 @@
   }
 }
 
+/* Animation pour le dialogue persistant */
+@keyframes slideUp {
+  from {
+    transform: translateY(100px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 /* === RESPONSIVE === */
 @media (max-width: 768px) {
   .dialogue-container {
@@ -644,6 +708,7 @@
     left: 10px;
     right: 10px;
     width: auto;
+    max-width: calc(100% - 20px);
   }
   
   .audio-controls-basic {
@@ -691,5 +756,11 @@
   #frost-canvas {
     width: 300px;
     height: 300px;
+  }
+  
+  .persistent-dialogue-container {
+    width: 95%;
+    max-width: none;
+    bottom: 10px;
   }
 }

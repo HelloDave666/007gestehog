@@ -54,6 +54,20 @@ class HeartOfFrostExercise extends EventEmitter {
     // Vérifier et établir la connexion audio
     this.establishAudioConnection();
     
+    // Démarrer la lecture audio si un fichier est chargé
+    if (this.audioConnected && window.audioSystem) {
+      if (typeof window.audioSystem.isAudioBufferLoaded === 'function' && 
+          window.audioSystem.isAudioBufferLoaded()) {
+        
+        console.log('[HeartOfFrost] Démarrage de la lecture audio');
+        if (typeof window.audioSystem.startPlayback === 'function') {
+          window.audioSystem.startPlayback();
+        }
+      } else {
+        console.warn('[HeartOfFrost] Aucun fichier audio chargé pour l\'exercice');
+      }
+    }
+    
     this.emit('started', {
       targetRotations: this.targetRotations,
       targetBPM: this.targetBPM
@@ -404,7 +418,23 @@ class HeartOfFrostExercise extends EventEmitter {
     
     const finalScore = this.calculateFinalScore();
     
-    // Feedback audio de fin
+    // D'abord arrêter la lecture audio
+    if (window.audioSystem && typeof window.audioSystem.stopPlayback === 'function') {
+      console.log('[HeartOfFrost] Exercice réussi - Arrêt forcé de la lecture audio');
+      window.audioSystem.stopPlayback();
+      
+      // Double vérification après un court délai
+      setTimeout(() => {
+        if (window.audioSystem && typeof window.audioSystem.isPlaybackActive === 'function' && 
+            window.audioSystem.isPlaybackActive() && 
+            typeof window.audioSystem.stopPlayback === 'function') {
+          console.log('[HeartOfFrost] Second arrêt forcé de l\'audio');
+          window.audioSystem.stopPlayback();
+        }
+      }, 100);
+    }
+    
+    // Puis jouer le feedback audio de fin
     this.playCompletionFeedback();
     
     this.emit('completed', {
@@ -469,6 +499,12 @@ class HeartOfFrostExercise extends EventEmitter {
     
     // Réinitialiser les paramètres audio
     this.initializeAudioSettings();
+    
+    // Arrêter la lecture audio
+    if (this.audioConnected && window.audioSystem && typeof window.audioSystem.stopPlayback === 'function') {
+      console.log('[HeartOfFrost] Arrêt de la lecture audio');
+      window.audioSystem.stopPlayback();
+    }
     
     this.emit('stopped');
   }

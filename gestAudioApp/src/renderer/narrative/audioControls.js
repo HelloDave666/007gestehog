@@ -1,6 +1,7 @@
-/**
+/** 
  * Module de contrôle audio pour l'onglet Rita's Adventure
- * Version améliorée avec meilleure détection du système audio
+ * Version améliorée avec meilleure détection du système audio 
+ * et suppression des contrôles de lecture visibles
  */
 
 const { EventEmitter } = require('events');
@@ -8,493 +9,322 @@ const { EventEmitter } = require('events');
 // Émetteur d'événements pour la communication avec d'autres modules
 const audioControlEvents = new EventEmitter();
 
-// Variables globales pour la gestion d'état
-let audioSystemCheckInterval = null;
-let retryCount = 0;
-const maxRetries = 10;
+// État du module
+let container = null;
+let isInitialized = false;
+let audioControls = null;
+let fileInput = null;
+let audioFileStatus = null;
+
+// Réferences vers les éléments d'interface
+let audioLoadedInfo = null;
 
 /**
- * Crée et initialise les contrôles audio dans l'onglet narratif
- * @param {HTMLElement} container - Conteneur pour les contrôles audio
+ * Crée les contrôles audio dans le conteneur spécifié
+ * @param {HTMLElement} containerElement - Élément conteneur pour les contrôles
  */
-function createAudioControls(container) {
-    if (!container) {
-        console.error('[AudioControls] Conteneur non spécifié');
-        return false;
-    }
-    
-    console.log('[AudioControls] Création des contrôles audio...');
-    
-    // Créer le conteneur pour les contrôles audio
-    const audioControlsContainer = document.createElement('div');
-    audioControlsContainer.className = 'audio-controls-narrative';
-    
-    // Ajouter le contenu HTML
-    audioControlsContainer.innerHTML = `
-        <div class="audio-upload-section">
-            <h3>🎵 Contrôles Audio pour les Exercices</h3>
-            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
-                Chargez un fichier audio qui sera utilisé comme base pour les exercices interactifs.
-            </p>
-            <div class="file-upload-container">
-                <label for="narrativeAudioFile" class="custom-file-upload">
-                    <i class="fas fa-music"></i> Choisir un fichier audio
-                </label>
-                <input type="file" id="narrativeAudioFile" accept="audio/*" />
-                <span id="narrativeFileName">Aucun fichier sélectionné</span>
-            </div>
-            <div class="audio-controls-basic">
-                <button id="narrativePlayPauseButton" class="control-button" disabled>
-                    <span class="play-icon">▶</span>
-                    <span class="pause-icon" style="display: none;">⏸</span>
-                </button>
-                <button id="narrativeStopButton" class="control-button" disabled style="background-color: #f44336;">
-                    <span>⏹</span>
-                </button>
-                <div class="volume-control">
-                    <span id="narrativeVolumeDisplay">Volume: 100%</span>
-                </div>
-                <div class="loop-control">
-                    <label>
-                        <input type="checkbox" id="narrativeLoopCheckbox" checked>
-                        Mode boucle (recommandé pour les exercices)
-                    </label>
-                </div>
-            </div>
-            <div class="audio-status" id="narrativeAudioStatus">
-                <span style="color: #ff9800;">Vérification du système audio...</span>
-            </div>
-            <div class="debug-info" id="narrativeDebugInfo" style="font-size: 12px; color: #999; margin-top: 10px;">
-                Initialisation en cours...
-            </div>
-        </div>
-    `;
-    
-    // Ajouter le conteneur au DOM
-    container.insertBefore(audioControlsContainer, container.firstChild);
-    
-    // Démarrer la vérification du système audio
-    startAudioSystemCheck();
-    
-    // Configurer les écouteurs d'événements après un court délai
-    setTimeout(() => {
-        setupEventListeners();
-    }, 500);
-    
-    console.log('[AudioControls] Interface créée, vérification du système audio...');
-    audioControlEvents.emit('audioControlsInitialized');
-    
-    return true;
+function createAudioControls(containerElement) {
+  if (!containerElement) {
+    console.error('[AudioControls] Conteneur non spécifié');
+    return;
+  }
+  
+  container = containerElement;
+  
+  // Vérifier si les contrôles existent déjà
+  if (container.querySelector('.audio-controls-container')) {
+    console.warn('[AudioControls] Les contrôles audio existent déjà dans ce conteneur');
+    return;
+  }
+  
+  console.log('[AudioControls] Création des contrôles audio');
+  
+  // Créer le conteneur principal
+  audioControls = document.createElement('div');
+  audioControls.className = 'audio-controls-container';
+  audioControls.style.marginBottom = '20px';
+  audioControls.style.padding = '15px';
+  audioControls.style.backgroundColor = 'rgba(0, 0, 0, 0.05)';
+  audioControls.style.borderRadius = '8px';
+  audioControls.style.border = '1px solid rgba(0, 0, 0, 0.1)';
+  
+  // Titre des contrôles
+  const title = document.createElement('h3');
+  title.textContent = '🎵 Contrôles Audio pour les Exercices';
+  title.style.marginTop = '0';
+  title.style.marginBottom = '15px';
+  title.style.color = '#333';
+  audioControls.appendChild(title);
+  
+  // Description
+  const description = document.createElement('p');
+  description.textContent = 'Chargez un fichier audio qui sera utilisé comme base pour les exercices interactifs.';
+  description.style.marginBottom = '15px';
+  description.style.color = '#555';
+  audioControls.appendChild(description);
+  
+  // Section de chargement de fichier
+  const fileSection = document.createElement('div');
+  fileSection.className = 'file-section';
+  fileSection.style.marginBottom = '15px';
+  
+  // Label pour le fichier
+  const fileLabel = document.createElement('label');
+  fileLabel.innerHTML = '🎵 Choisir un fichier audio ';
+  fileLabel.style.marginRight = '10px';
+  fileLabel.style.display = 'inline-block';
+  fileLabel.style.verticalAlign = 'middle';
+  
+  // Input de fichier
+  fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.id = 'narrativeAudioFile';
+  fileInput.accept = 'audio/*';
+  fileInput.style.display = 'none';
+  
+  // Bouton personnalisé pour le chargement de fichier
+  const customButton = document.createElement('button');
+  customButton.textContent = 'Choisir un fichier';
+  customButton.className = 'btn btn-primary btn-sm';
+  customButton.style.marginRight = '10px';
+  customButton.onclick = function() {
+    fileInput.click();
+  };
+  
+  // Nom de fichier
+  const fileNameDisplay = document.createElement('span');
+  fileNameDisplay.id = 'fileNameDisplay';
+  fileNameDisplay.style.marginLeft = '10px';
+  fileNameDisplay.style.color = '#666';
+  fileNameDisplay.style.fontStyle = 'italic';
+  
+  // Ajouter les éléments à la section de fichier
+  fileLabel.appendChild(fileInput);
+  fileSection.appendChild(fileLabel);
+  fileSection.appendChild(customButton);
+  fileSection.appendChild(fileNameDisplay);
+  audioControls.appendChild(fileSection);
+  
+  // Section d'options
+  const optionsSection = document.createElement('div');
+  optionsSection.className = 'options-section';
+  optionsSection.style.display = 'flex';
+  optionsSection.style.alignItems = 'center';
+  optionsSection.style.marginBottom = '15px';
+  
+  // Checkbox pour la lecture en boucle
+  const loopContainer = document.createElement('div');
+  loopContainer.style.marginRight = '20px';
+  
+  const loopCheckbox = document.createElement('input');
+  loopCheckbox.type = 'checkbox';
+  loopCheckbox.id = 'narrativeLoopCheckbox';
+  loopCheckbox.checked = true;
+  loopCheckbox.style.marginRight = '5px';
+  
+  const loopLabel = document.createElement('label');
+  loopLabel.htmlFor = 'narrativeLoopCheckbox';
+  loopLabel.textContent = 'Mode boucle (recommandé pour les exercices)';
+  
+  loopContainer.appendChild(loopCheckbox);
+  loopContainer.appendChild(loopLabel);
+  optionsSection.appendChild(loopContainer);
+  
+  audioControls.appendChild(optionsSection);
+  
+  // Section de statut
+  const statusSection = document.createElement('div');
+  statusSection.className = 'status-section';
+  
+  // Indicateur de fichier audio chargé
+  audioFileStatus = document.createElement('div');
+  audioFileStatus.className = 'audio-file-status';
+  statusSection.appendChild(audioFileStatus);
+  
+  // Information sur le fichier audio chargé
+  audioLoadedInfo = document.createElement('div');
+  audioLoadedInfo.className = 'audio-loaded-info';
+  audioLoadedInfo.style.display = 'none';
+  audioLoadedInfo.style.marginTop = '10px';
+  audioLoadedInfo.style.padding = '8px';
+  audioLoadedInfo.style.backgroundColor = 'rgba(39, 174, 96, 0.1)';
+  audioLoadedInfo.style.borderLeft = '3px solid #27ae60';
+  audioLoadedInfo.style.borderRadius = '3px';
+  statusSection.appendChild(audioLoadedInfo);
+  
+  audioControls.appendChild(statusSection);
+  
+  // Ajouter au conteneur
+  container.insertBefore(audioControls, container.firstChild);
+  
+  // Configurer les événements
+  setupEvents();
+  
+  // Synchroniser avec le système audio existant
+  synchronizeWithAudioSystem();
+  
+  isInitialized = true;
+  audioControlEvents.emit('initialized');
+  
+  console.log('[AudioControls] Contrôles audio créés');
 }
 
 /**
- * Démarre la vérification périodique du système audio
+ * Configure les événements pour les contrôles audio
  */
-function startAudioSystemCheck() {
-    const debugInfo = document.getElementById('narrativeDebugInfo');
-    const audioStatus = document.getElementById('narrativeAudioStatus');
-    
-    // Fonction de vérification
-    const checkAudioSystem = () => {
-        retryCount++;
-        
-        if (debugInfo) {
-            debugInfo.textContent = `Tentative ${retryCount}/${maxRetries} - Recherche du système audio...`;
-        }
-        
-        console.log(`[AudioControls] Vérification ${retryCount}/${maxRetries} du système audio`);
-        
-        // Vérifier si le système audio est disponible
-        if (window.audioSystem) {
-            console.log('[AudioControls] Système audio détecté !');
-            
-            if (debugInfo) {
-                debugInfo.textContent = '✓ Système audio détecté';
-                debugInfo.style.color = '#4caf50';
-            }
-            
-            if (audioStatus) {
-                audioStatus.innerHTML = '<span style="color: #4caf50;">✓ Système audio disponible</span>';
-            }
-            
-            // Arrêter la vérification
-            if (audioSystemCheckInterval) {
-                clearInterval(audioSystemCheckInterval);
-                audioSystemCheckInterval = null;
-            }
-            
-            // Configurer les écouteurs d'événements audio
-            setupAudioSystemEventListeners();
-            
-            // Synchroniser l'état
-            synchronizeWithAudioSystem();
-            
-            return true;
-        } else {
-            console.warn(`[AudioControls] Système audio non trouvé (tentative ${retryCount})`);
-            
-            if (audioStatus) {
-                audioStatus.innerHTML = `<span style="color: #f44336;">Système audio non disponible (${retryCount}/${maxRetries})</span>`;
-            }
-            
-            // Arrêter après maxRetries tentatives
-            if (retryCount >= maxRetries) {
-                console.error('[AudioControls] Échec de la détection du système audio après', maxRetries, 'tentatives');
-                
-                if (debugInfo) {
-                    debugInfo.textContent = '❌ Système audio non trouvé - Rechargez la page ou passez par l\'onglet "Sound Control"';
-                    debugInfo.style.color = '#f44336';
-                }
-                
-                if (audioStatus) {
-                    audioStatus.innerHTML = '<span style="color: #f44336;">❌ Système audio non disponible</span>';
-                }
-                
-                if (audioSystemCheckInterval) {
-                    clearInterval(audioSystemCheckInterval);
-                    audioSystemCheckInterval = null;
-                }
-                
-                return false;
-            }
-        }
-        
-        return false;
-    };
-    
-    // Vérification immédiate
-    if (!checkAudioSystem()) {
-        // Si pas trouvé, vérifier toutes les secondes
-        audioSystemCheckInterval = setInterval(() => {
-            checkAudioSystem();
-        }, 1000);
-    }
+function setupEvents() {
+  // Événement de chargement de fichier
+  fileInput.addEventListener('change', handleFileSelection);
+  
+  // Événement de lecture en boucle
+  const loopCheckbox = document.getElementById('narrativeLoopCheckbox');
+  if (loopCheckbox && window.audioSystem && typeof window.audioSystem.setLoopPlayback === 'function') {
+    loopCheckbox.addEventListener('change', (event) => {
+      window.audioSystem.setLoopPlayback(event.target.checked);
+      console.log(`[AudioControls] Mode boucle ${event.target.checked ? 'activé' : 'désactivé'}`);
+    });
+  }
 }
 
 /**
- * Configure les écouteurs d'événements pour les contrôles audio
+ * Gère la sélection de fichier audio
+ * @param {Event} event - Événement de changement d'input
  */
-function setupEventListeners() {
-    console.log('[AudioControls] Configuration des écouteurs d\'événements...');
+function handleFileSelection(event) {
+  const file = event.target.files[0];
+  
+  if (!file) return;
+  
+  // Mettre à jour l'affichage du nom de fichier
+  const fileNameDisplay = document.getElementById('fileNameDisplay');
+  if (fileNameDisplay) {
+    fileNameDisplay.textContent = file.name;
+  }
+  
+  // Charger le fichier dans le système audio
+  if (window.audioSystem && typeof window.audioSystem.loadAudioFile === 'function') {
+    // Mettre à jour le statut
+    updateFileStatus('Chargement en cours...', 'loading');
     
-    const audioFileInput = document.getElementById('narrativeAudioFile');
-    const fileNameSpan = document.getElementById('narrativeFileName');
-    const playPauseButton = document.getElementById('narrativePlayPauseButton');
-    const stopButton = document.getElementById('narrativeStopButton');
-    const loopCheckbox = document.getElementById('narrativeLoopCheckbox');
-    const audioStatus = document.getElementById('narrativeAudioStatus');
-    const playIcon = playPauseButton ? playPauseButton.querySelector('.play-icon') : null;
-    const pauseIcon = playPauseButton ? playPauseButton.querySelector('.pause-icon') : null;
-    
-    // Gestionnaire pour le chargement de fichier
-    if (audioFileInput) {
-        audioFileInput.addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            if (file) {
-                console.log('[AudioControls] Nouveau fichier sélectionné:', file.name);
-                
-                // Vérifier le système audio avant de charger
-                if (!window.audioSystem) {
-                    console.error('[AudioControls] Système audio non disponible pour le chargement');
-                    audioStatus.innerHTML = '<span style="color: #f44336;">❌ Système audio non disponible</span>';
-                    return;
-                }
-                
-                // Mettre à jour l'interface
-                fileNameSpan.textContent = file.name;
-                audioStatus.innerHTML = `<span style="color: #ff9800;">Chargement de ${file.name}...</span>`;
-                
-                // Charger le fichier audio via le système audio global
-                try {
-                    if (typeof window.audioSystem.loadAudioFile === 'function') {
-                        console.log('[AudioControls] Chargement via le système audio global');
-                        window.audioSystem.loadAudioFile(file);
-                        
-                        // Émettre un événement
-                        audioControlEvents.emit('audioFileSelected', {
-                            fileName: file.name,
-                            fileSize: file.size,
-                            fileType: file.type
-                        });
-                    } else {
-                        throw new Error('Méthode loadAudioFile non disponible');
-                    }
-                } catch (error) {
-                    console.error('[AudioControls] Erreur lors du chargement:', error);
-                    audioStatus.innerHTML = `<span style="color: #f44336;">Erreur: ${error.message}</span>`;
-                }
-            }
-        });
-    }
-    
-    // Gestionnaire pour le bouton play/pause
-    if (playPauseButton) {
-        playPauseButton.addEventListener('click', () => {
-            console.log('[AudioControls] Clic sur play/pause');
-            
-            if (!window.audioSystem) {
-                console.error('[AudioControls] Système audio non disponible');
-                return;
-            }
-            
-            try {
-                let isPlaying = false;
-                
-                if (typeof window.audioSystem.togglePlayPause === 'function') {
-                    isPlaying = window.audioSystem.togglePlayPause();
-                    console.log('[AudioControls] togglePlayPause appelé, isPlaying:', isPlaying);
-                } else if (typeof window.audioSystem.isPlaybackActive === 'function' && 
-                          typeof window.audioSystem.startPlayback === 'function' &&
-                          typeof window.audioSystem.stopPlayback === 'function') {
-                    // Méthode alternative
-                    if (window.audioSystem.isPlaybackActive()) {
-                        window.audioSystem.stopPlayback();
-                        isPlaying = false;
-                        console.log('[AudioControls] Lecture arrêtée manuellement');
-                    } else {
-                        window.audioSystem.startPlayback();
-                        isPlaying = true;
-                        console.log('[AudioControls] Lecture démarrée manuellement');
-                    }
-                } else {
-                    throw new Error('Aucune méthode de contrôle de lecture disponible');
-                }
-                
-                // Mettre à jour l'interface
-                updatePlayPauseButton(isPlaying);
-                
-                // Émettre un événement
-                audioControlEvents.emit('playbackStateChanged', { isPlaying });
-                
-            } catch (error) {
-                console.error('[AudioControls] Erreur lors du contrôle de lecture:', error);
-                audioStatus.innerHTML = `<span style="color: #f44336;">Erreur: ${error.message}</span>`;
-            }
-        });
-    }
-    
-    // Gestionnaire pour le bouton stop
-    if (stopButton) {
-        stopButton.addEventListener('click', () => {
-            console.log('[AudioControls] Clic sur stop');
-            
-            if (window.audioSystem && typeof window.audioSystem.stopPlayback === 'function') {
-                try {
-                    window.audioSystem.stopPlayback();
-                    updatePlayPauseButton(false);
-                    audioStatus.innerHTML = '<span style="color: #666;">⏹ Lecture arrêtée</span>';
-                    console.log('[AudioControls] Lecture arrêtée');
-                } catch (error) {
-                    console.error('[AudioControls] Erreur lors de l\'arrêt:', error);
-                }
-            }
-        });
-    }
-    
-    // Gestionnaire pour la case à cocher boucle
-    if (loopCheckbox) {
-        loopCheckbox.addEventListener('change', () => {
-            console.log('[AudioControls] Changement mode boucle:', loopCheckbox.checked);
-            
-            if (window.audioSystem && typeof window.audioSystem.setLoopPlayback === 'function') {
-                try {
-                    window.audioSystem.setLoopPlayback(loopCheckbox.checked);
-                    console.log('[AudioControls] Mode boucle mis à jour');
-                } catch (error) {
-                    console.error('[AudioControls] Erreur lors du changement de mode boucle:', error);
-                }
-            }
-        });
-    }
-    
-    console.log('[AudioControls] Écouteurs d\'événements configurés');
+    // Charger le fichier audio
+    window.audioSystem.loadAudioFile(file)
+      .then(() => {
+        console.log('[AudioControls] Fichier audio chargé avec succès');
+      })
+      .catch(error => {
+        console.error('[AudioControls] Erreur lors du chargement du fichier audio:', error);
+        updateFileStatus('Erreur de chargement', 'error');
+      });
+  } else {
+    console.error('[AudioControls] Système audio non disponible');
+    updateFileStatus('Système audio non disponible', 'error');
+  }
 }
 
 /**
- * Met à jour l'état du bouton play/pause
+ * Met à jour le statut du fichier audio
+ * @param {string} message - Message de statut
+ * @param {string} type - Type de statut (loading, success, error)
  */
-function updatePlayPauseButton(isPlaying) {
-    const playIcon = document.querySelector('#narrativePlayPauseButton .play-icon');
-    const pauseIcon = document.querySelector('#narrativePlayPauseButton .pause-icon');
-    const audioStatus = document.getElementById('narrativeAudioStatus');
-    
-    if (playIcon && pauseIcon) {
-        if (isPlaying) {
-            playIcon.style.display = 'none';
-            pauseIcon.style.display = 'inline';
-        } else {
-            playIcon.style.display = 'inline';
-            pauseIcon.style.display = 'none';
-        }
-    }
-    
-    if (audioStatus) {
-        if (isPlaying) {
-            audioStatus.innerHTML = '<span style="color: #4caf50;">▶ Lecture en cours</span>';
-        } else {
-            audioStatus.innerHTML = '<span style="color: #ff9800;">⏸ Lecture en pause</span>';
-        }
-    }
+function updateFileStatus(message, type = 'info') {
+  if (!audioFileStatus) return;
+  
+  // Définir la couleur en fonction du type
+  let color = '#333';
+  let icon = '📝';
+  let backgroundColor = 'transparent';
+  
+  switch (type) {
+    case 'loading':
+      color = '#3498db';
+      icon = '⏳';
+      backgroundColor = 'rgba(52, 152, 219, 0.1)';
+      break;
+    case 'success':
+      color = '#27ae60';
+      icon = '✅';
+      backgroundColor = 'rgba(39, 174, 96, 0.1)';
+      break;
+    case 'error':
+      color = '#e74c3c';
+      icon = '❌';
+      backgroundColor = 'rgba(231, 76, 60, 0.1)';
+      break;
+  }
+  
+  // Mettre à jour le style et le contenu
+  audioFileStatus.style.color = color;
+  audioFileStatus.style.padding = '8px';
+  audioFileStatus.style.borderRadius = '4px';
+  audioFileStatus.style.backgroundColor = backgroundColor;
+  audioFileStatus.innerHTML = `${icon} ${message}`;
 }
 
 /**
- * Configure les écouteurs d'événements du système audio
- */
-function setupAudioSystemEventListeners() {
-    if (!window.audioSystem || !window.audioSystem.audioEvents) {
-        console.warn('[AudioControls] AudioEvents non disponible');
-        return;
-    }
-    
-    console.log('[AudioControls] Configuration des écouteurs d\'événements audio...');
-    
-    const volumeDisplay = document.getElementById('narrativeVolumeDisplay');
-    const audioStatus = document.getElementById('narrativeAudioStatus');
-    const playPauseButton = document.getElementById('narrativePlayPauseButton');
-    const stopButton = document.getElementById('narrativeStopButton');
-    const fileNameSpan = document.getElementById('narrativeFileName');
-    
-    // Événements du système audio
-    try {
-        // Mise à jour du volume
-        window.audioSystem.audioEvents.on('volumeChanged', (data) => {
-            console.log('[AudioControls] Événement volumeChanged:', data);
-            if (volumeDisplay) {
-                volumeDisplay.textContent = `Volume: ${Math.round(data.volume * 100)}%`;
-            }
-        });
-        
-        // Mise à jour de l'état de lecture
-        window.audioSystem.audioEvents.on('playbackStateChanged', (data) => {
-            console.log('[AudioControls] Événement playbackStateChanged:', data);
-            updatePlayPauseButton(data.isPlaying);
-        });
-        
-        // Fichier audio chargé
-        window.audioSystem.audioEvents.on('audioFileLoaded', (data) => {
-            console.log('[AudioControls] Événement audioFileLoaded:', data);
-            
-            if (playPauseButton) playPauseButton.disabled = false;
-            if (stopButton) stopButton.disabled = false;
-            if (fileNameSpan && !fileNameSpan.textContent.includes(data.fileName)) {
-                fileNameSpan.textContent = data.fileName;
-            }
-            if (audioStatus) {
-                audioStatus.innerHTML = `<span style="color: #4caf50;">✓ ${data.fileName} chargé (${data.duration.toFixed(1)}s)</span>`;
-            }
-            
-            // Activer automatiquement le mode boucle
-            const loopCheckbox = document.getElementById('narrativeLoopCheckbox');
-            if (loopCheckbox && loopCheckbox.checked && 
-                window.audioSystem && typeof window.audioSystem.setLoopPlayback === 'function') {
-                window.audioSystem.setLoopPlayback(true);
-                console.log('[AudioControls] Mode boucle activé automatiquement');
-            }
-        });
-        
-        // Erreur de chargement
-        window.audioSystem.audioEvents.on('audioFileError', (data) => {
-            console.error('[AudioControls] Erreur de chargement audio:', data);
-            if (audioStatus) {
-                audioStatus.innerHTML = `<span style="color: #f44336;">❌ Erreur: ${data.error}</span>`;
-            }
-        });
-        
-        // Fin de lecture
-        window.audioSystem.audioEvents.on('playbackEnded', () => {
-            console.log('[AudioControls] Fin de lecture');
-            updatePlayPauseButton(false);
-            if (audioStatus) {
-                audioStatus.innerHTML = '<span style="color: #666;">⏹ Lecture terminée</span>';
-            }
-        });
-        
-        console.log('[AudioControls] Écouteurs d\'événements audio configurés avec succès');
-        
-    } catch (error) {
-        console.error('[AudioControls] Erreur lors de la configuration des écouteurs audio:', error);
-    }
-}
-
-/**
- * Force la synchronisation avec le système audio
+ * Synchronise avec le système audio existant
  */
 function synchronizeWithAudioSystem() {
-    if (!window.audioSystem) {
-        console.warn('[AudioControls] Système audio non disponible pour la synchronisation');
-        return;
-    }
+  if (!window.audioSystem) {
+    console.warn('[AudioControls] Système audio non disponible pour synchronisation');
+    return;
+  }
+  
+  console.log('[AudioControls] Synchronisation avec le système audio');
+  
+  // Écouter les événements du système audio
+  if (window.audioSystem.audioEvents) {
+    // Événement de chargement de fichier audio
+    window.audioSystem.audioEvents.on('audioFileLoaded', handleAudioFileLoaded);
+  }
+  
+  // Initialiser l'état du mode boucle
+  const loopCheckbox = document.getElementById('narrativeLoopCheckbox');
+  if (loopCheckbox) {
+    // Définir l'état par défaut à "true" pour la boucle
+    loopCheckbox.checked = true;
     
-    console.log('[AudioControls] Synchronisation avec le système audio...');
-    
-    try {
-        // Vérifier l'état actuel du système audio
-        const hasAudio = window.audioSystem.isAudioBufferLoaded ? window.audioSystem.isAudioBufferLoaded() : false;
-        const isPlaying = window.audioSystem.isPlaybackActive ? window.audioSystem.isPlaybackActive() : false;
-        
-        console.log('[AudioControls] État synchronisé - hasAudio:', hasAudio, 'isPlaying:', isPlaying);
-        
-        // Mettre à jour les contrôles
-        const playPauseButton = document.getElementById('narrativePlayPauseButton');
-        const stopButton = document.getElementById('narrativeStopButton');
-        const audioStatus = document.getElementById('narrativeAudioStatus');
-        
-        if (playPauseButton) playPauseButton.disabled = !hasAudio;
-        if (stopButton) stopButton.disabled = !hasAudio;
-        
-        updatePlayPauseButton(isPlaying);
-        
-        if (audioStatus) {
-            if (hasAudio) {
-                audioStatus.innerHTML = isPlaying ? 
-                    '<span style="color: #4caf50;">▶ Lecture en cours</span>' : 
-                    '<span style="color: #ff9800;">Prêt à lire</span>';
-            } else {
-                audioStatus.innerHTML = '<span style="color: #4caf50;">✓ Système audio disponible</span>';
-            }
-        }
-        
-    } catch (error) {
-        console.error('[AudioControls] Erreur lors de la synchronisation:', error);
+    // Appliquer le réglage au système audio
+    if (typeof window.audioSystem.setLoopPlayback === 'function') {
+      window.audioSystem.setLoopPlayback(true);
     }
+  }
 }
 
 /**
- * Met à jour l'état des contrôles audio
- * @param {Object} state - État actuel du système audio
+ * Gère l'événement de chargement de fichier audio
+ * @param {object} data - Données du fichier audio chargé
  */
-function updateControlsState(state) {
-    const playPauseButton = document.getElementById('narrativePlayPauseButton');
-    const stopButton = document.getElementById('narrativeStopButton');
-    const volumeDisplay = document.getElementById('narrativeVolumeDisplay');
-    const audioStatus = document.getElementById('narrativeAudioStatus');
-    const loopCheckbox = document.getElementById('narrativeLoopCheckbox');
-    
-    if (state.hasFile) {
-        if (playPauseButton) playPauseButton.disabled = false;
-        if (stopButton) stopButton.disabled = false;
-    } else {
-        if (playPauseButton) playPauseButton.disabled = true;
-        if (stopButton) stopButton.disabled = true;
-    }
-    
-    if (state.volume !== undefined && volumeDisplay) {
-        volumeDisplay.textContent = `Volume: ${Math.round(state.volume * 100)}%`;
-    }
-    
-    if (state.isLooping !== undefined && loopCheckbox) {
-        loopCheckbox.checked = state.isLooping;
-    }
-    
-    if (state.status && audioStatus) {
-        audioStatus.innerHTML = state.status;
-    }
+function handleAudioFileLoaded(data) {
+  console.log('[AudioControls] Fichier audio chargé:', data.fileName);
+  
+  // Mettre à jour le statut
+  updateFileStatus('Fichier audio chargé avec succès', 'success');
+  
+  // Mettre à jour les informations de fichier
+  if (audioLoadedInfo) {
+    audioLoadedInfo.style.display = 'block';
+    audioLoadedInfo.innerHTML = `
+      <div style="font-weight: bold; margin-bottom: 5px;">✓ ${data.fileName} chargé (${data.duration.toFixed(2)}s)</div>
+      <div style="font-size: 0.9em; color: #555;">✓ Système audio détecté</div>
+    `;
+  }
+  
+  // Émettre un événement
+  audioControlEvents.emit('audioFileLoaded', data);
 }
 
-// Exporter les fonctions et objets du module
+/**
+ * Vérifie si les contrôles audio sont initialisés
+ * @returns {boolean} - Vrai si les contrôles sont initialisés
+ */
+function isAudioControlsInitialized() {
+  return isInitialized;
+}
+
+// Exporter les fonctions et l'émetteur d'événements
 module.exports = {
-    createAudioControls,
-    updateControlsState,
-    synchronizeWithAudioSystem,
-    audioControlEvents
+  createAudioControls,
+  synchronizeWithAudioSystem,
+  isAudioControlsInitialized,
+  audioControlEvents
 };

@@ -1,1 +1,98 @@
+Lancement de l'application :
+
 npm run start-prod
+
+Script affichage structure projet :
+
+function Show-TreeWithWebFiles {
+    param (
+        [string]$Path = ".",
+        [int]$Depth = 4,
+        [string]$Indent = "",
+        [string[]]$Exclude = @("node_modules", ".git", "dist", "bin", "obj"),
+        [bool]$Last = $false
+    )
+
+    # Obtenir les dossiers (en excluant ceux spécifiés)
+    $folders = Get-ChildItem -Path $Path -Directory | Where-Object { $Exclude -notcontains $_.Name } | Sort-Object Name
+    
+    # Obtenir les fichiers par type - APPROCHE CORRIGÉE pour les HTML
+    $jsFiles = @(Get-ChildItem -Path $Path -File -Filter "*.js" | Sort-Object Name)
+    $cssFiles = @(Get-ChildItem -Path $Path -File -Filter "*.css" | Sort-Object Name)
+    $htmlFiles = @(Get-ChildItem -Path $Path -File -Filter "*.html" | Sort-Object Name)
+    $htmFiles = @(Get-ChildItem -Path $Path -File -Filter "*.htm" | Sort-Object Name)
+    $jsonFiles = @(Get-ChildItem -Path $Path -File -Filter "*.json" | Sort-Object Name)
+    $pngFiles = @(Get-ChildItem -Path $Path -File -Filter "*.png" | Sort-Object Name)
+    
+    # Combiner tous les fichiers pertinents
+    $allFiles = @()
+    $allFiles += $jsFiles
+    $allFiles += $cssFiles
+    $allFiles += $htmlFiles
+    $allFiles += $htmFiles
+    $allFiles += $jsonFiles
+    $allFiles += $pngFiles
+    $allFiles = $allFiles | Sort-Object Name
+    
+    # Calculer le nombre total d'éléments pour déterminer le dernier
+    $totalItems = $folders.Count + $allFiles.Count
+    $i = 0
+    
+    # Traiter d'abord les dossiers
+    foreach ($folder in $folders) {
+        $i++
+        $isLast = ($i -eq $totalItems)
+        
+        # Afficher le dossier
+        if ($Last) {
+            $nodeSymbol = "└──"
+            $newIndent = $Indent + "    "
+        } else {
+            $nodeSymbol = "├──"
+            $newIndent = $Indent + "│   "
+        }
+        
+        "$Indent$nodeSymbol 📁 $($folder.Name)"
+        
+        # Traiter les sous-dossiers et fichiers récursivement
+        if ($Depth -gt 1) {
+            Show-TreeWithWebFiles -Path $folder.FullName -Depth ($Depth - 1) -Indent $newIndent -Exclude $Exclude -Last $isLast
+        }
+    }
+    
+    # Traiter ensuite les fichiers
+    foreach ($file in $allFiles) {
+        $i++
+        $isLast = ($i -eq $totalItems)
+        
+        # Choisir l'icône en fonction du type de fichier
+        $icon = switch ($file.Extension.ToLower()) {
+            ".js"   { "🟨" } # Icône jaune pour JavaScript
+            ".css"  { "🟦" } # Icône bleue pour CSS
+            ".html" { "🟧" } # Icône orange pour HTML
+            ".htm"  { "🟧" } # Icône orange pour HTML
+            ".json" { "🟪" } # Icône violette pour JSON
+            ".png"  { "🖼️" } # Icône image pour PNG
+            default { "📄" } # Icône par défaut pour les autres fichiers
+        }
+        
+        # Afficher le fichier
+        if ($Last) {
+            $nodeSymbol = "└──"
+        } else {
+            $nodeSymbol = "├──"
+        }
+        
+        "$Indent$nodeSymbol $icon $($file.Name)"
+    }
+}
+
+# Appeler la fonction et enregistrer la sortie dans un fichier
+"Project Structure with Web Files:" | Out-File -FilePath "web_project_structure.txt"
+"Root: $(Get-Location)" | Out-File -FilePath "web_project_structure.txt" -Append
+"Legend: 🟨 JavaScript | 🟦 CSS | 🟧 HTML | 🟪 JSON | 🖼️ PNG | 📁 Folder" | Out-File -FilePath "web_project_structure.txt" -Append
+"--------------------------------------------------" | Out-File -FilePath "web_project_structure.txt" -Append
+Show-TreeWithWebFiles -Path . -Depth 5 -Exclude @("node_modules", ".git", "dist", "bin", "obj") | Out-File -FilePath "web_project_structure.txt" -Append
+
+Write-Host "Structure du projet avec fichiers web enregistrée dans web_project_structure.txt"
+Write-Host "Légende: 🟨 JavaScript | 🟦 CSS | 🟧 HTML | 🟪 JSON | 🖼️ PNG | 📁 Dossier"

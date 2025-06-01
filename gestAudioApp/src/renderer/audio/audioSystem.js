@@ -28,6 +28,9 @@ let sensitivityFactor = 1.0;
 let audioSource = null;
 let mainGainNode = null;
 
+// Variable pour contrôler si les capteurs peuvent démarrer la lecture
+let autoStartFromSensors = false;
+
 // Fonction pour exposer le nœud source audio principal
 window.getAudioSourceNode = function() {
   return audioSource;
@@ -632,8 +635,17 @@ function formatTime(timeInSeconds) {
 }
 
 /**
+ * Active/désactive le démarrage automatique par les capteurs
+ * @param {boolean} enable - Activer/désactiver le démarrage automatique
+ */
+function setAutoStartFromSensors(enable) {
+  autoStartFromSensors = enable;
+  console.log(`[Audio] Démarrage automatique par capteurs ${enable ? 'activé' : 'désactivé'}`);
+}
+
+/**
  * Traite les données des capteurs pour contrôler l'audio
- * Implémentation fidèle à l'original
+ * Version modifiée qui n'active PAS automatiquement la lecture
  * @param {object} sensorData - Données des capteurs
  */
 function updateFromSensors(sensorData) {
@@ -710,22 +722,8 @@ function updateFromSensors(sensorData) {
         speedDisplay.textContent = `Vitesse: ${newSpeed.toFixed(2)}x (${directionText})`;
       }
 
-      // Si pas déjà en lecture, démarrer
-      if (!isPlaybackActive()) {
-        startPlayback();
-        
-        // Mise à jour du bouton play/pause
-        const playPauseButton = document.getElementById('playPauseButton');
-        if (playPauseButton) {
-          const playIcon = playPauseButton.querySelector('.play-icon-fa');
-          const pauseIcon = playPauseButton.querySelector('.pause-icon-fa');
-          
-          if (playIcon) playIcon.style.display = 'none';
-          if (pauseIcon) pauseIcon.style.display = '';
-        }
-        
-        updateAudioStatus('Lecture en cours');
-      }
+      // MODIFICATION IMPORTANTE: NE PAS démarrer automatiquement la lecture
+      // La lecture sera contrôlée uniquement par l'exercice Cœur de givre
     }
   } catch (error) {
     console.error('[Audio] Erreur avec les capteurs:', error);
@@ -820,10 +818,14 @@ module.exports = {
   loadAudioFile,
   togglePlayPause,
   updateFromSensors,
+  setAutoStartFromSensors,
   isPlaybackActive,
   testPlayback,
   toggleRecording,
   isAudioBufferLoaded,
   setLoopPlayback,
+  startPlayback,
+  stopPlayback,
+  setPlaybackPosition,
   audioEvents
 };
